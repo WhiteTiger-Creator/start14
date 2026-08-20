@@ -1,0 +1,109 @@
+{
+  "cli": {
+    "fixed_paths": [
+      "/app/data/linkage_policy.json",
+      "/app/data/do_not_merge.json"
+    ],
+    "input": "--input selects the party records file only; default /app/data/party_records.json",
+    "output_dir": "--output-dir selects the output directory; default /app/output"
+  },
+  "contract_version": "party-link-v1",
+  "description": "Output contract for the party-linkage engine. Shapes, paths, field lists and sort orders only; no derivation rule lives here.",
+  "outputs": {
+    "golden_records": {
+      "container": "array",
+      "element_fields": [
+        "cluster_id",
+        "survivor_id",
+        "member_ids",
+        "given_name",
+        "family_name",
+        "street",
+        "city",
+        "postal_code",
+        "born_on",
+        "member_count",
+        "completeness"
+      ],
+      "path": "/app/output/golden_records.json",
+      "serialisation": "JSON array, two-space indent, trailing newline",
+      "sort": "ascending by cluster_id; member_ids ascending"
+    },
+    "review_queue": {
+      "container": "jsonl",
+      "element_fields": [
+        "left",
+        "right",
+        "score",
+        "reason"
+      ],
+      "path": "/app/output/review_queue.jsonl",
+      "reasons": [
+        "do_not_merge",
+        "below_threshold",
+        "cluster_too_large"
+      ],
+      "serialisation": "one compact JSON object per line, trailing newline",
+      "sort": "descending by score, then ascending by left then right"
+    },
+    "summary": {
+      "container": "object",
+      "field_types": {
+        "block_count": "integer",
+        "cluster_count": "integer",
+        "do_not_merge_block_count": "integer",
+        "effective_block_prefix": "integer",
+        "effective_match_threshold": "integer",
+        "effective_max_cluster": "integer",
+        "effective_review_floor": "integer",
+        "link_count": "integer",
+        "merged_cluster_count": "integer",
+        "oversized_cluster_count": "integer",
+        "record_count": "integer",
+        "review_count": "integer",
+        "schema_version": "string"
+      },
+      "path": "/app/output/summary.json",
+      "required_fields": [
+        "schema_version",
+        "record_count",
+        "block_count",
+        "link_count",
+        "cluster_count",
+        "merged_cluster_count",
+        "oversized_cluster_count",
+        "do_not_merge_block_count",
+        "review_count",
+        "effective_match_threshold",
+        "effective_review_floor",
+        "effective_block_prefix",
+        "effective_max_cluster"
+      ],
+      "serialisation": "JSON object, two-space indent, trailing newline"
+    }
+  },
+  "reconciled_inputs": {
+    "party_records": {
+      "container": "array",
+      "path": "/app/data/party_records.json",
+      "record_fields": [
+        "record_id",
+        "source_system",
+        "given_name",
+        "family_name",
+        "street",
+        "city",
+        "postal_code",
+        "born_on",
+        "loaded_on_day"
+      ],
+      "serialisation": "JSON array, two-space indent, trailing newline",
+      "sort": "ascending by record_id"
+    }
+  },
+  "runtime_budget_seconds": 90,
+  "units": {
+    "loaded_on_day": "integer day offset; smaller is earlier",
+    "score": "integer points; the field weights sum to 110"
+  }
+}

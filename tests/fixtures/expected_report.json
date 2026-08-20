@@ -1,0 +1,45 @@
+{
+  "alternate": {
+    "golden_digest": "2fe145e2b20d643acd5b5edad5f26cd86c8d6fb9a375b6c04bebc19331e9f25b",
+    "review_digest": "c78e43e03e80b98cbc1b8f9d8e4e76b3d7c77a488bc15f5809ccca8693546bfe",
+    "summary": {
+      "block_count": 5090,
+      "cluster_count": 12105,
+      "do_not_merge_block_count": 52,
+      "effective_block_prefix": 4,
+      "effective_match_threshold": 62,
+      "effective_max_cluster": 12,
+      "effective_review_floor": 48,
+      "link_count": 16475,
+      "merged_cluster_count": 5484,
+      "oversized_cluster_count": 42,
+      "record_count": 20283,
+      "review_count": 1520,
+      "schema_version": "party-link-v1"
+    }
+  },
+  "broken_engine_sha256": "2dd8020a71d45345eeaa4ab50c321c77f3e5f82ef5cac909c5a14353555a0258",
+  "primary": {
+    "golden_digest": "40c8a6003ade4a0fc414d0c3dc4958bd638972fcbb677d1bcf0fa7f0106771ab",
+    "review_digest": "ead922c5b6b48c86c5b90a84f6837662bd0348f2179b25d445e381f92a18bc1c",
+    "summary": {
+      "block_count": 5090,
+      "cluster_count": 12093,
+      "do_not_merge_block_count": 53,
+      "effective_block_prefix": 4,
+      "effective_match_threshold": 62,
+      "effective_max_cluster": 12,
+      "effective_review_floor": 48,
+      "link_count": 16530,
+      "merged_cluster_count": 5495,
+      "oversized_cluster_count": 42,
+      "record_count": 20283,
+      "review_count": 1465,
+      "schema_version": "party-link-v1"
+    }
+  },
+  "recovered_master_digest": "5601c81d30923cf0b1d28d1bb20c01b7f9ee079652c6716fd6f980fd813e98dd",
+  "recovered_record_count": 20283,
+  "rule_sources_digest": "7de4fffc19b372b75eab68b056ec7b966802ab2832d8b89da6e7c648a00f5a63",
+  "shipped_truncated_digest": "3cad9922423cdc9c4a3416e3f2f39b414df27e528088424c610975c88d4606b2"
+}

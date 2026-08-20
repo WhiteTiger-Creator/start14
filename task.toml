@@ -1,0 +1,100 @@
+artifacts = ["/app"]
+name = "party-linkage-reconciler"
+
+[metadata]
+author_name = "Jonathan"
+author_email = "jtolbert0175@gmail.com"
+difficulty_explanation = '''
+Restoring this engine is the work of a data-stewardship or master-data engineer picking up after a
+botched migration, and it is a dependent chain rather than a single repair. All of the data is
+synthetic: the party names, addresses, source systems and the stewardship minute book were generated
+for this task and describe no real person, household or system. The migration left
+/app/data/party_records.json holding a truncated prefix of the master, so the first step is to
+rebuild it by replaying the change journal onto the pre-migration extract under the board's final
+recovery decision -- a correction overwriting a field in place, a withdrawal taking a record out
+while the stewards keep it as it then stood, and a reinstatement restoring exactly that held state
+so that corrections posted while the record was out are lost. Every match downstream is wrong if
+that replay is wrong. Only then can the linkage dialect be reconstructed, and the minute book is
+written the way a stewardship board actually writes: it records where the board departed from
+ordinary matching practice and never restates what blocking, a match weight or survivorship means.
+Three February drafts were reversed in the May review and one March interim was revised, so every
+rule must be traced to its FINAL dated decision: candidates are drawn only from a derived block
+rather than compared file-wide, a pair on the do-not-merge register is reported rather than skipped
+in silence, a cluster larger than the policy cap is dissolved into singletons rather than trusted,
+and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. Scale
+is the other constraint: the recovered master holds roughly twenty thousand records, so the two
+hundred million pairs a file-wide comparison would score cannot be reached inside the ninety-second
+budget, while the blocked comparison the board settled on reaches only about fifty thousand. An
+engine that gets the dialect right but compares file-wide does not finish; one that blocks correctly
+but takes the freshest survivor produces a plausible master that is wrong in thousands of rows.
+'''
+solution_explanation = '''
+solution/solve.sh drives the two dependent steps inside the environment container. Step one runs
+solution/recover_parties.go, which implements the board's final recovery decision (#MDM-3170 and
+#MDM-3174): it starts from /app/data/party_snapshot_pre_migration.json, replays
+/app/data/party_change_journal.json in ascending seq, applies a correction in place, holds a
+withdrawn record aside as it then stood, restores exactly that held state on a reinstatement,
+ignores a change naming an unknown record, and writes the survivors over the truncated
+/app/data/party_records.json ascending by record id with only the nine source fields. Step two
+copies solution/link_parties_fixed.go over /app/workflow/link_parties.go and runs it. The engine
+normalises for comparison only (#MDM-3182), draws candidates from blocks keyed on the normalised
+family-name prefix and given-name initial (#MDM-3184), scores each in-block pair on the board's
+field weights treating an empty field as no evidence (#MDM-3186), links at or above the threshold
+except where the do-not-merge register forbids it and queues those instead (#MDM-3190), unions the
+links transitively, dissolves any cluster over the cap into singletons and queues each of them
+(#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id and
+takes the golden values from that record alone (#MDM-3196), and emits summary.json,
+golden_records.json and review_queue.jsonl in the contracted orders (#MDM-3198).
+'''
+verification_explanation = '''
+The separate verifier (tests/Dockerfile builds an isolated image the agent cannot see) collects the
+agent's whole /app as the declared artifact and runs tests/test_outputs.py against it. Step one is
+graded directly: the rebuilt master must match the sealed digest and record count, carry only the
+nine source fields with no journal bookkeeping surviving, and leave the extract and journal
+byte-identical. The verifier re-derives the misreadings of the recovery rule from those same sources
+-- a plain concatenation, a replay in file order rather than by sequence, and one where a
+reinstatement re-reads the extract instead of the held state -- and requires each to differ from the
+governed result. Step two recompiles the agent's submitted /app/workflow/link_parties.go from source
+with go build rather than trusting any delivered binary, runs it under an unprivileged uid (65534
+via setpriv, a scrubbed environment, inputs staged into a candidate-writable work area) on both the
+recovered master and a held-out alternate master, and compares summary.json in full plus SHA-256
+digests of golden_records.json and review_queue.jsonl against sealed fixtures generated from the
+reference. Crafted micro-instances pin each reversed rule independently: one proves a pair outside
+any shared block is never compared however well it would score, one proves a do-not-merge pair is
+queued rather than silently dropped, one proves an oversized cluster is dissolved into singletons,
+and one proves the survivor of a completeness tie is the earliest loaded record rather than the
+freshest. The run is timed against the ninety-second budget the contract publishes. The frozen
+snapshot /app/workflow/.link_parties.original.go is asserted present by hash and wrong by output.
+Confirmed locally in the real two-container flow: after solve.sh the verifier gives reward 1, a
+fresh environment with no solve.sh gives 0, and so does an environment where the engine is repaired
+but the master is never rebuilt.
+'''
+relevant_experience = '''
+Working knowledge of master-data management as a discipline -- deterministic record linkage,
+blocking, field-weighted scoring, transitive clustering and survivorship taken as read rather than
+looked up -- plus experience rebuilding a master by replaying a change journal onto an extract, and
+reconstructing a matching dialect from an authoritative but noisy stewardship minute book that
+records only the board's departures from standard practice, tracing incrementally-revised rules to
+their final form and matching a strict output contract in Go at a scale where a file-wide
+comparison cannot finish.
+'''
+category = "Software"
+subcategory = "Data engineering"
+tags = ["record-linkage", "master-data", "blocking", "survivorship", "incident-recovery"]
+expert_time_estimate_hours = 4
+difficulty = "advanced"
+languages = ["go"]
+
+[environment]
+build_timeout_sec = 900
+cpus = 2
+memory_mb = 4096
+storage_mb = 10240
+network_mode = "no-network"
+
+[agent]
+timeout_sec = 5400
+
+[verifier]
+timeout_sec = 1800
+environment_mode = "separate"

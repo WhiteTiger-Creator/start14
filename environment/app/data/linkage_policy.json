@@ -1,0 +1,8 @@
+{
+  "default": {
+    "block_prefix_len": 4,
+    "match_threshold": 62,
+    "max_cluster_size": 12,
+    "review_floor": 48
+  }
+}
