@@ -238,5 +238,485 @@
   {
     "left": "REC-001597",
     "right": "REC-001598"
+  },
+  {
+    "left": "REC-001642",
+    "right": "REC-001643"
+  },
+  {
+    "left": "REC-001653",
+    "right": "REC-001654"
+  },
+  {
+    "left": "REC-001680",
+    "right": "REC-001681"
+  },
+  {
+    "left": "REC-001692",
+    "right": "REC-001693"
+  },
+  {
+    "left": "REC-001709",
+    "right": "REC-001710"
+  },
+  {
+    "left": "REC-001737",
+    "right": "REC-001738"
+  },
+  {
+    "left": "REC-001752",
+    "right": "REC-001753"
+  },
+  {
+    "left": "REC-001783",
+    "right": "REC-001784"
+  },
+  {
+    "left": "REC-001829",
+    "right": "REC-001830"
+  },
+  {
+    "left": "REC-001849",
+    "right": "REC-001850"
+  },
+  {
+    "left": "REC-001863",
+    "right": "REC-001864"
+  },
+  {
+    "left": "REC-001876",
+    "right": "REC-001877"
+  },
+  {
+    "left": "REC-001886",
+    "right": "REC-001887"
+  },
+  {
+    "left": "REC-001927",
+    "right": "REC-001928"
+  },
+  {
+    "left": "REC-001943",
+    "right": "REC-001944"
+  },
+  {
+    "left": "REC-001972",
+    "right": "REC-001973"
+  },
+  {
+    "left": "REC-001987",
+    "right": "REC-001988"
+  },
+  {
+    "left": "REC-002000",
+    "right": "REC-002001"
+  },
+  {
+    "left": "REC-002014",
+    "right": "REC-002015"
+  },
+  {
+    "left": "REC-002060",
+    "right": "REC-002061"
+  },
+  {
+    "left": "REC-002098",
+    "right": "REC-002099"
+  },
+  {
+    "left": "REC-002124",
+    "right": "REC-002125"
+  },
+  {
+    "left": "REC-002137",
+    "right": "REC-002138"
+  },
+  {
+    "left": "REC-002150",
+    "right": "REC-002151"
+  },
+  {
+    "left": "REC-002162",
+    "right": "REC-002163"
+  },
+  {
+    "left": "REC-002214",
+    "right": "REC-002215"
+  },
+  {
+    "left": "REC-002241",
+    "right": "REC-002242"
+  },
+  {
+    "left": "REC-002269",
+    "right": "REC-002270"
+  },
+  {
+    "left": "REC-002292",
+    "right": "REC-002293"
+  },
+  {
+    "left": "REC-002314",
+    "right": "REC-002315"
+  },
+  {
+    "left": "REC-002334",
+    "right": "REC-002335"
+  },
+  {
+    "left": "REC-002345",
+    "right": "REC-002346"
+  },
+  {
+    "left": "REC-002369",
+    "right": "REC-002370"
+  },
+  {
+    "left": "REC-002417",
+    "right": "REC-002418"
+  },
+  {
+    "left": "REC-002429",
+    "right": "REC-002430"
+  },
+  {
+    "left": "REC-002442",
+    "right": "REC-002443"
+  },
+  {
+    "left": "REC-002472",
+    "right": "REC-002473"
+  },
+  {
+    "left": "REC-002482",
+    "right": "REC-002483"
+  },
+  {
+    "left": "REC-002523",
+    "right": "REC-002524"
+  },
+  {
+    "left": "REC-002534",
+    "right": "REC-002535"
+  },
+  {
+    "left": "REC-002620",
+    "right": "REC-002621"
+  },
+  {
+    "left": "REC-002646",
+    "right": "REC-002647"
+  },
+  {
+    "left": "REC-002661",
+    "right": "REC-002662"
+  },
+  {
+    "left": "REC-002675",
+    "right": "REC-002676"
+  },
+  {
+    "left": "REC-002686",
+    "right": "REC-002687"
+  },
+  {
+    "left": "REC-002711",
+    "right": "REC-002712"
+  },
+  {
+    "left": "REC-002737",
+    "right": "REC-002738"
+  },
+  {
+    "left": "REC-002750",
+    "right": "REC-002751"
+  },
+  {
+    "left": "REC-002760",
+    "right": "REC-002761"
+  },
+  {
+    "left": "REC-002773",
+    "right": "REC-002774"
+  },
+  {
+    "left": "REC-002803",
+    "right": "REC-002804"
+  },
+  {
+    "left": "REC-002824",
+    "right": "REC-002825"
+  },
+  {
+    "left": "REC-002875",
+    "right": "REC-002876"
+  },
+  {
+    "left": "REC-002923",
+    "right": "REC-002924"
+  },
+  {
+    "left": "REC-002938",
+    "right": "REC-002939"
+  },
+  {
+    "left": "REC-002964",
+    "right": "REC-002965"
+  },
+  {
+    "left": "REC-003007",
+    "right": "REC-003008"
+  },
+  {
+    "left": "REC-003030",
+    "right": "REC-003031"
+  },
+  {
+    "left": "REC-003061",
+    "right": "REC-003062"
+  },
+  {
+    "left": "REC-003085",
+    "right": "REC-003086"
+  },
+  {
+    "left": "REC-003101",
+    "right": "REC-003102"
+  },
+  {
+    "left": "REC-003111",
+    "right": "REC-003112"
+  },
+  {
+    "left": "REC-003175",
+    "right": "REC-003176"
+  },
+  {
+    "left": "REC-003189",
+    "right": "REC-003190"
+  },
+  {
+    "left": "REC-003219",
+    "right": "REC-003220"
+  },
+  {
+    "left": "REC-003257",
+    "right": "REC-003258"
+  },
+  {
+    "left": "REC-003273",
+    "right": "REC-003274"
+  },
+  {
+    "left": "REC-003290",
+    "right": "REC-003291"
+  },
+  {
+    "left": "REC-003305",
+    "right": "REC-003306"
+  },
+  {
+    "left": "REC-003318",
+    "right": "REC-003319"
+  },
+  {
+    "left": "REC-003341",
+    "right": "REC-003342"
+  },
+  {
+    "left": "REC-003352",
+    "right": "REC-003353"
+  },
+  {
+    "left": "REC-003401",
+    "right": "REC-003402"
+  },
+  {
+    "left": "REC-003436",
+    "right": "REC-003437"
+  },
+  {
+    "left": "REC-003448",
+    "right": "REC-003449"
+  },
+  {
+    "left": "REC-003461",
+    "right": "REC-003462"
+  },
+  {
+    "left": "REC-003474",
+    "right": "REC-003475"
+  },
+  {
+    "left": "REC-003487",
+    "right": "REC-003488"
+  },
+  {
+    "left": "REC-003512",
+    "right": "REC-003513"
+  },
+  {
+    "left": "REC-003527",
+    "right": "REC-003528"
+  },
+  {
+    "left": "REC-003554",
+    "right": "REC-003555"
+  },
+  {
+    "left": "REC-003564",
+    "right": "REC-003565"
+  },
+  {
+    "left": "REC-003591",
+    "right": "REC-003592"
+  },
+  {
+    "left": "REC-003619",
+    "right": "REC-003620"
+  },
+  {
+    "left": "REC-003673",
+    "right": "REC-003674"
+  },
+  {
+    "left": "REC-003689",
+    "right": "REC-003690"
+  },
+  {
+    "left": "REC-003702",
+    "right": "REC-003703"
+  },
+  {
+    "left": "REC-003714",
+    "right": "REC-003715"
+  },
+  {
+    "left": "REC-003747",
+    "right": "REC-003748"
+  },
+  {
+    "left": "REC-003757",
+    "right": "REC-003758"
+  },
+  {
+    "left": "REC-003770",
+    "right": "REC-003771"
+  },
+  {
+    "left": "REC-003791",
+    "right": "REC-003792"
+  },
+  {
+    "left": "REC-003832",
+    "right": "REC-003833"
+  },
+  {
+    "left": "REC-003887",
+    "right": "REC-003888"
+  },
+  {
+    "left": "REC-003927",
+    "right": "REC-003928"
+  },
+  {
+    "left": "REC-003941",
+    "right": "REC-003942"
+  },
+  {
+    "left": "REC-004018",
+    "right": "REC-004019"
+  },
+  {
+    "left": "REC-004032",
+    "right": "REC-004033"
+  },
+  {
+    "left": "REC-004056",
+    "right": "REC-004057"
+  },
+  {
+    "left": "REC-004099",
+    "right": "REC-004100"
+  },
+  {
+    "left": "REC-004109",
+    "right": "REC-004110"
+  },
+  {
+    "left": "REC-004131",
+    "right": "REC-004132"
+  },
+  {
+    "left": "REC-004148",
+    "right": "REC-004149"
+  },
+  {
+    "left": "REC-004183",
+    "right": "REC-004184"
+  },
+  {
+    "left": "REC-004206",
+    "right": "REC-004207"
+  },
+  {
+    "left": "REC-004219",
+    "right": "REC-004220"
+  },
+  {
+    "left": "REC-004235",
+    "right": "REC-004236"
+  },
+  {
+    "left": "REC-004245",
+    "right": "REC-004246"
+  },
+  {
+    "left": "REC-004260",
+    "right": "REC-004261"
+  },
+  {
+    "left": "REC-004273",
+    "right": "REC-004274"
+  },
+  {
+    "left": "REC-004285",
+    "right": "REC-004286"
+  },
+  {
+    "left": "REC-004310",
+    "right": "REC-004311"
+  },
+  {
+    "left": "REC-004340",
+    "right": "REC-004341"
+  },
+  {
+    "left": "REC-004366",
+    "right": "REC-004367"
+  },
+  {
+    "left": "REC-004405",
+    "right": "REC-004406"
+  },
+  {
+    "left": "REC-004418",
+    "right": "REC-004419"
+  },
+  {
+    "left": "REC-004430",
+    "right": "REC-004431"
+  },
+  {
+    "left": "REC-004443",
+    "right": "REC-004444"
+  },
+  {
+    "left": "REC-004484",
+    "right": "REC-004485"
+  },
+  {
+    "left": "REC-004497",
+    "right": "REC-004498"
   }
 ]

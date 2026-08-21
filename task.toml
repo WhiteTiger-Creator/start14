@@ -27,7 +27,7 @@ hundred million pairs a file-wide comparison would score cannot be reached insid
 budget, while the blocked comparison the board settled on reaches only about fifty thousand. An
 engine that gets the dialect right but compares file-wide does not finish; one that blocks correctly
 but takes the freshest survivor produces a plausible master that is wrong in thousands of rows.
-'''
+ The recovered master runs to sixty-one thousand records, so the pairwise search is the engineering crux rather than a detail: comparing every record against every other is roughly one and nine tenths billion scored comparisons and does not return inside the ninety-second budget the contract publishes, while drawing candidates from the governed block brings the whole run back in a few seconds. A solution that reads every governance rule correctly and still enumerates the pairs fails on the budget alone.'''
 solution_explanation = '''
 solution/solve.sh drives the two dependent steps inside the environment container. Step one runs
 solution/recover_parties.go, which implements the board's final recovery decision (#MDM-3170 and
