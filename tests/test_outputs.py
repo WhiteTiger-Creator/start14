@@ -306,24 +306,95 @@ def test_run_is_idempotent(primary_outputs):
     assert s2 == summary and _digest(g2) == _digest(golden) and _digest(r2) == _digest(reviews)
 
 
-def test_cli_defaults_match_an_explicit_run(primary_outputs):
-    """Omitting --input uses the documented default master."""
+def test_no_argument_run_writes_to_the_documented_default_output_dir(primary_outputs):
+    """With no flags at all the engine reads and writes its documented defaults.
+
+    The previous form passed --output-dir, so it only ever exercised the --input
+    default; changing the default output directory went unnoticed.
+    """
+    binary = _build(WORKFLOW_PATH)
+    _publish_inputs()
+    default_out = Path(SPEC["cli"]["output_dir"].split("default ")[-1].strip())
+    assert str(default_out) == "/app/output"
+    shutil.rmtree(default_out, ignore_errors=True)
+    default_out.mkdir(parents=True, exist_ok=True)
+    os.chmod(default_out, 0o777)
+    result = _run_agent([binary], cwd=_candidate_dir())
+    assert result.returncode == 0, result.stderr
+    assert sorted(q.name for q in default_out.iterdir()) == [
+        "golden_records.json", "review_queue.jsonl", "summary.json"]
+    _, summary, golden, reviews = primary_outputs
+    assert _load_json(default_out / "summary.json") == summary
+    assert _digest(_load_json(default_out / "golden_records.json")) == _digest(golden)
+    assert _digest(_load_jsonl(default_out / "review_queue.jsonl")) == _digest(reviews)
+
+
+def test_output_artifacts_use_the_contracted_serialisation(primary_outputs):
+    """The three files are written exactly as the contract spells them out.
+
+    Byte-for-byte: two-space indent and a trailing newline for the two JSON
+    documents, one compact object per line for the queue.
+    """
+    out_dir, summary, golden, reviews = primary_outputs
+    assert (out_dir / "summary.json").read_text(encoding="utf-8") == \
+        json.dumps(summary, indent=2) + "\n"
+    assert (out_dir / "golden_records.json").read_text(encoding="utf-8") == \
+        json.dumps(golden, indent=2) + "\n"
+    raw = (out_dir / "review_queue.jsonl").read_text(encoding="utf-8")
+    assert raw.endswith("\n") and "\n\n" not in raw
+    lines = raw.splitlines()
+    assert len(lines) == len(reviews)
+    for line, row in zip(lines, reviews):
+        assert line == json.dumps(row, separators=(",", ":"))
+
+
+def test_stale_files_are_cleared_from_the_output_directory():
+    """A run presents its own artifacts, not whatever an earlier run left behind."""
     binary = _build(WORKFLOW_PATH)
     _publish_inputs()
     work = _candidate_dir()
     out_dir = work / "output"
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(out_dir, 0o777)
+    stale = out_dir / "golden_records.json"
+    stale.write_text("[]\n", encoding="utf-8")
+    os.chmod(stale, 0o666)
+    junk = out_dir / "leftover_from_last_run.json"
+    junk.write_text('{"stale": true}\n', encoding="utf-8")
+    os.chmod(junk, 0o666)
     result = _run_agent([binary, "--output-dir", str(out_dir)], cwd=work)
     assert result.returncode == 0, result.stderr
-    _, summary, _, _ = primary_outputs
-    assert _load_json(out_dir / "summary.json") == summary
+    assert sorted(q.name for q in out_dir.iterdir()) == [
+        "golden_records.json", "review_queue.jsonl", "summary.json"]
+    assert _load_json(out_dir / "golden_records.json") != []
 
 
-def test_graded_run_meets_documented_runtime_budget(primary_outputs):
-    """The graded run finishes inside the budget the contract publishes."""
-    elapsed = _ELAPSED[str(MASTER_PATH)]
-    assert elapsed <= RUNTIME_BUDGET_SEC, f"took {elapsed:.1f}s, budget {RUNTIME_BUDGET_SEC}s"
+def test_missing_policy_fields_fall_back_to_the_governed_baseline():
+    """A field the policy file omits keeps its baseline; it is not read as zero.
+
+    An empty policy object must still resolve match_threshold 62, review_floor 48,
+    block_prefix_len 4 and max_cluster_size 12.
+    """
+    _, summary, _, _ = _probe([_rec("REC-000001", "carverov"),
+                               _rec("REC-000002", "carverov")],
+                              policy={"default": {}})
+    assert summary["effective_match_threshold"] == 62
+    assert summary["effective_review_floor"] == 48
+    assert summary["effective_block_prefix"] == 4
+    assert summary["effective_max_cluster"] == 12
+    # a zero threshold would have linked everything in sight
+    assert summary["link_count"] == 1
+
+
+def test_graded_run_is_killed_if_it_exceeds_the_documented_budget(primary_outputs):
+    """The budget is enforced, and not by comparing a measured elapsed time.
+
+    Every candidate run is executed with the published budget as its hard
+    timeout, so a run that overruns is killed and the suite fails outright; there
+    is no wall-clock threshold here to go flaky on a loaded machine.
+    """
+    assert HARD_TIMEOUT_SEC == int(RUNTIME_BUDGET_SEC)
+    assert primary_outputs[1]["cluster_count"] > 0, "the graded run did not complete"
 
 
 def test_runtime_budget_is_stated_in_the_contract():
@@ -381,3 +452,41 @@ def test_shipped_contract_matches_the_golden_copy():
     """
     shipped = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
     assert shipped == json.loads(GOLDEN_CONTRACT_PATH.read_text(encoding="utf-8"))
+
+
+def test_a_registered_pair_below_the_threshold_is_not_queued_as_do_not_merge():
+    """The register bites only where a pair would otherwise have linked.
+
+    The same registered pair is run under three floors. Scoring below the match
+    threshold it is never a link, so it is queued as below_threshold where it
+    reaches the review floor and not queued at all beneath it -- never as
+    do_not_merge, which the literal reading of the rule would have produced.
+    """
+    pair = [_rec("REC-000001", "carverov", given="alpha", city="arden",
+                 street="12 oak street", postal_code="A11", born_on="1980-01-01"),
+            _rec("REC-000002", "carverov", given="albert", city="belmont",
+                 street="99 willow street", postal_code="H42", born_on="1991-07-04")]
+    register = [{"left": "REC-000001", "right": "REC-000002"}]
+
+    # measure the score this pair actually reaches rather than assuming one
+    _, _, _, measured = _probe(pair, do_not_merge=register, policy={"default": {
+        "match_threshold": 999, "review_floor": 0,
+        "block_prefix_len": 4, "max_cluster_size": 12}})
+    assert len(measured) == 1, measured
+    score = measured[0]["score"]
+    assert 0 < score < 999, score
+
+    # below the threshold but at or above the floor: an ordinary sub-threshold pair
+    _, summary, _, reviews = _probe(pair, do_not_merge=register, policy={"default": {
+        "match_threshold": score + 1, "review_floor": score,
+        "block_prefix_len": 4, "max_cluster_size": 12}})
+    assert summary["link_count"] == 0
+    assert summary["do_not_merge_block_count"] == 0
+    assert [r["reason"] for r in reviews] == ["below_threshold"]
+
+    # below the review floor as well: not queued at all
+    _, summary, _, reviews = _probe(pair, do_not_merge=register, policy={"default": {
+        "match_threshold": score + 2, "review_floor": score + 1,
+        "block_prefix_len": 4, "max_cluster_size": 12}})
+    assert summary["do_not_merge_block_count"] == 0
+    assert reviews == []

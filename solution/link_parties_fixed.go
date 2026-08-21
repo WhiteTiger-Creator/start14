@@ -136,6 +136,15 @@ func completeness(r record) int {
 	return n
 }
 
+// #MDM-3210: the policy is read from its fixed absolute path, and any field the
+// file omits keeps its governed baseline. A missing key is NOT zero.
+func policyValue(pol policy, field string, baseline int) int {
+	if value, ok := pol.Default[field]; ok {
+		return value
+	}
+	return baseline
+}
+
 func main() {
 	input := flag.String("input", "/app/data/party_records.json", "party records")
 	outputDir := flag.String("output-dir", "/app/output", "output directory")
@@ -150,10 +159,10 @@ func main() {
 	readJSON("/app/data/do_not_merge.json", &blocked)
 	readJSON(*input, &records)
 
-	threshold := pol.Default["match_threshold"]
-	reviewFloor := pol.Default["review_floor"]
-	prefixLen := pol.Default["block_prefix_len"]
-	maxCluster := pol.Default["max_cluster_size"]
+	threshold := policyValue(pol, "match_threshold", 62)
+	reviewFloor := policyValue(pol, "review_floor", 48)
+	prefixLen := policyValue(pol, "block_prefix_len", 4)
+	maxCluster := policyValue(pol, "max_cluster_size", 12)
 
 	sort.Slice(records, func(i, j int) bool { return records[i].RecordID < records[j].RecordID })
 	index := make(map[string]int, len(records))
@@ -339,6 +348,15 @@ func main() {
 		}
 	}
 
+	// A run writes exactly the three contracted artifacts, so anything an earlier
+	// run left behind is cleared first rather than presented as this run's output.
+	if entries, err := os.ReadDir(*outputDir); err == nil {
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				os.Remove(*outputDir + "/" + entry.Name())
+			}
+		}
+	}
 	if err := os.MkdirAll(*outputDir, 0o755); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

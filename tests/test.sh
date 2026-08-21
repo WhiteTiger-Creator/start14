@@ -10,6 +10,13 @@ python -m pytest -o cache_dir=/tmp/pytest_cache \
   --ctrf /logs/verifier/ctrf.json "$TEST_DIR/test_outputs.py" -rA
 rc=$?
 
+# Stop anything the graded program left behind before the reward is computed:
+# a child still running as the unprivileged candidate could otherwise be writing
+# while the result is decided.
+pkill -KILL -u 65534 >/dev/null 2>&1 || true
+pkill -KILL -P $$ >/dev/null 2>&1 || true
+wait >/dev/null 2>&1 || true
+
 if [ "$rc" -eq 0 ]; then
   echo 1 > /logs/verifier/reward.txt
 else

@@ -46,7 +46,9 @@ REVIEW_REASONS = set(SPEC["outputs"]["review_queue"]["reasons"])
 # Budget published by the contract and stated in instruction.md. Held as a literal
 # so it cannot be relaxed by editing the environment, and cross-checked below.
 RUNTIME_BUDGET_SEC = 90.0
-HARD_TIMEOUT_SEC = 240
+# The published budget IS the hard timeout: a run that exceeds it is killed and
+# the suite fails deterministically, with no wall-clock comparison to go flaky.
+HARD_TIMEOUT_SEC = int(RUNTIME_BUDGET_SEC)
 _ELAPSED: dict[str, float] = {}
 
 CANDIDATE_UID = 65534

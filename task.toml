@@ -1,3 +1,4 @@
+schema_version = "2.0"
 artifacts = ["/app"]
 name = "party-linkage-reconciler"
 
@@ -21,13 +22,10 @@ Three February drafts were reversed in the May review and one March interim was 
 rule must be traced to its FINAL dated decision: candidates are drawn only from a derived block
 rather than compared file-wide, a pair on the do-not-merge register is reported rather than skipped
 in silence, a cluster larger than the policy cap is dissolved into singletons rather than trusted,
-and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. Scale
-is the other constraint: the recovered master holds roughly twenty thousand records, so the two
-hundred million pairs a file-wide comparison would score cannot be reached inside the ninety-second
-budget, while the blocked comparison the board settled on reaches only about fifty thousand. An
+and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. An
 engine that gets the dialect right but compares file-wide does not finish; one that blocks correctly
 but takes the freshest survivor produces a plausible master that is wrong in thousands of rows.
- The recovered master runs to sixty-one thousand records, so the pairwise search is the engineering crux rather than a detail: comparing every record against every other is roughly one and nine tenths billion scored comparisons and does not return inside the ninety-second budget the contract publishes, while drawing candidates from the governed block brings the whole run back in a few seconds. A solution that reads every governance rule correctly and still enumerates the pairs fails on the budget alone.'''
+ The recovered master runs to sixty-one thousand records, so the pairwise search is the engineering crux rather than a detail: comparing every record against every other is roughly one and nine tenths billion scored comparisons and does not return inside the ninety-second budget the contract publishes, while drawing candidates from the governed block brings the whole run back in a few seconds. Enumerating the pairs breaches #MDM-3184 and so fails on the sealed result as well as on the budget; the scale is what makes the blocking rule consequential rather than incidental, since a file-wide comparison no longer merely disagrees with the governed answer, it never returns one.'''
 
 solution_explanation = '''
 solution/solve.sh drives the two dependent steps inside the environment container. Step one runs
@@ -98,5 +96,6 @@ network_mode = "no-network"
 timeout_sec = 5400
 
 [verifier]
+network_mode = "no-network"
 timeout_sec = 1800
 environment_mode = "separate"

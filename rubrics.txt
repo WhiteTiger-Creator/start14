@@ -1,0 +1,18 @@
+Agent reads /app/incident/stewardship_governance_log.md and traces each rule to its final dated decision rather than taking the first statement of it, +3
+Agent identifies that the shipped /app/data/party_records.json holds only part of the master and rebuilds it from the pre-migration extract and the change journal before linking anything, +5
+Agent replays the change journal in ascending sequence order rather than in the order the file happens to carry, +3
+Agent restores a reinstated record to the state it held when it was withdrawn, losing any correction posted while it was out, +3
+Agent draws candidate pairs from a derived block rather than comparing every record against every other, +5
+Agent chooses the survivor of a cluster by completeness and breaks a tie toward the earliest loaded record, +5
+Agent refuses to link a pair named on the do-not-merge register and still reports it for review, +3
+Agent dissolves a cluster larger than the policy cap into single-member clusters and queues every one of them, +3
+Agent scores a pair on the board's field weights and treats a field missing on either side as no evidence rather than as disagreement, +2
+Agent normalises values for comparison only and writes the survivor's own unnormalised values into the golden record, +2
+Agent runs the repaired engine and inspects the three output files rather than assuming the run succeeded, +2
+Agent times its own run against the budget the contract publishes rather than assuming that an approach which returns at all returns fast enough, +2
+Agent re-runs the engine and compares the outputs to confirm the run is reproducible, +1
+Agent reports golden records while /app/data/party_records.json still holds the truncated file the migration left, -5
+Agent modifies /app/data/party_snapshot_pre_migration.json, /app/data/party_change_journal.json or the governance log instead of treating them as read-only sources, -5
+Agent merges field values from several records of a cluster instead of taking them from the survivor alone, -3
+Agent hardcodes a policy value instead of resolving it from /app/data/linkage_policy.json, -3
+Agent edits or deletes the frozen snapshot /app/workflow/.link_parties.original.go, -2
