@@ -4,6 +4,44 @@ Every test below corresponds to something instruction.md states is graded.
 Shared machinery lives in harness.py.
 """
 
+def _source_string_literals(source: str) -> list[str]:
+    """Interpreted string literals in a Go file, skipping comments and raw strings.
+
+    A raw substring scan over the whole source would reject a correct program that
+    merely names one of these in a comment.
+    """
+    out: list[str] = []
+    i, n = 0, len(source)
+    while i < n:
+        if source.startswith("//", i):
+            k = source.find("\n", i)
+            i = n if k < 0 else k + 1
+            continue
+        if source.startswith("/*", i):
+            k = source.find("*/", i + 2)
+            i = n if k < 0 else k + 2
+            continue
+        c = source[i]
+        if c == "`":
+            k = source.find("`", i + 1)
+            i = n if k < 0 else k + 1
+            continue
+        if c == '"':
+            i += 1
+            buf = []
+            while i < n and source[i] != '"':
+                if source[i] == "\\":
+                    i += 2
+                    continue
+                buf.append(source[i])
+                i += 1
+            out.append("".join(buf))
+            i += 1
+            continue
+        i += 1
+    return out
+
+
 # harness.py sets __all__ explicitly, so the underscored helpers come across too.
 from harness import *  # noqa: F401,F403
 
@@ -438,9 +476,9 @@ def test_governance_log_present():
 
 def test_engine_does_not_reference_test_artifacts():
     """The engine derives its answer rather than reading anything verifier-side."""
-    source = WORKFLOW_PATH.read_text(encoding="utf-8")
+    literals = _source_string_literals(WORKFLOW_PATH.read_text(encoding="utf-8"))
     for token in ("/tests", "expected_report.json", "alt_master.json"):
-        assert token not in source
+        assert not any(token in literal for literal in literals), token
 
 
 def test_shipped_contract_matches_the_golden_copy():

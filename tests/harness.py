@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -49,7 +50,6 @@ RUNTIME_BUDGET_SEC = 90.0
 # The published budget IS the hard timeout: a run that exceeds it is killed and
 # the suite fails deterministically, with no wall-clock comparison to go flaky.
 HARD_TIMEOUT_SEC = int(RUNTIME_BUDGET_SEC)
-_ELAPSED: dict[str, float] = {}
 
 CANDIDATE_UID = 65534
 _CWORK = Path("/candidate-work")
@@ -136,9 +136,47 @@ def _publish_inputs() -> None:
             pass
 
 
+def _reap_group(pgid: int) -> None:
+    """Kill and reap everything left in the candidate's process group.
+
+    start_new_session makes the candidate a session and group leader, so its pgid
+    equals its pid and every process it spawns shares that group. The id is
+    captured before the run: once the direct child has been waited on its pgid can
+    no longer be looked up, and a leaked grandchild would survive to keep writing
+    while the outputs are graded.
+    """
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        return
+    for _ in range(50):
+        try:
+            os.killpg(pgid, 0)
+        except (ProcessLookupError, PermissionError, OSError):
+            return
+        time.sleep(0.02)
+
+
 def _run_agent(argv, cwd: Path):
-    return subprocess.run(_SETPRIV + argv, cwd=str(cwd), capture_output=True, text=True,
-                          env=dict(CHILD_ENV), timeout=HARD_TIMEOUT_SEC)
+    """Run the submitted program unprivileged and in its own process group."""
+    proc = subprocess.Popen(
+        _SETPRIV + argv, cwd=str(cwd), env=dict(CHILD_ENV),
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        start_new_session=True,
+    )
+    pgid = proc.pid          # session leader: pgid == pid, captured before the wait
+    try:
+        stdout, stderr = proc.communicate(timeout=HARD_TIMEOUT_SEC)
+    except subprocess.TimeoutExpired:
+        _reap_group(pgid)
+        proc.wait()
+        raise
+    finally:
+        # even on a clean exit, anything the program left running is stopped
+        # before its outputs are read
+        _reap_group(pgid)
+    result = subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
+    return result
 
 
 def _run_pipeline(script_path: Path = WORKFLOW_PATH, input_path: Path = MASTER_PATH):
@@ -152,9 +190,7 @@ def _run_pipeline(script_path: Path = WORKFLOW_PATH, input_path: Path = MASTER_P
     staged = work / "master.json"
     shutil.copyfile(str(input_path), str(staged))
     os.chmod(staged, 0o644)
-    started = time.monotonic()
     result = _run_agent([binary, "--input", str(staged), "--output-dir", str(out_dir)], cwd=work)
-    _ELAPSED[str(input_path)] = time.monotonic() - started
     assert result.returncode == 0, f"linker failed:\n{result.stdout}\n{result.stderr}"
     return (out_dir,
             _load_json(out_dir / "summary.json"),
@@ -170,6 +206,7 @@ __all__ = [
     "os",
     "re",
     "shutil",
+    "signal",
     "subprocess",
     "sys",
     "tempfile",
@@ -196,7 +233,6 @@ __all__ = [
     "REVIEW_REASONS",
     "RUNTIME_BUDGET_SEC",
     "HARD_TIMEOUT_SEC",
-    "_ELAPSED",
     "CANDIDATE_UID",
     "_CWORK",
     "_SETPRIV",
