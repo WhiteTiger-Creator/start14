@@ -76,9 +76,7 @@ func writeJSON(path string, value interface{}) {
 	}
 }
 
-// #MDM-3182: normalisation folds case, collapses internal whitespace and drops
-// every character that is not a letter, a digit or a single separating space.
-// The postal code additionally drops spaces entirely.
+// Text is folded to a comparable form before anything is matched on it.
 func normalise(s string) string {
 	var b strings.Builder
 	lastSpace := true
@@ -101,8 +99,7 @@ func normalisePostal(s string) string {
 	return strings.ReplaceAll(normalise(s), " ", "")
 }
 
-// #MDM-3186: the field weights the board settled on. A field missing on either
-// side scores nothing rather than counting as disagreement.
+// Weighted field agreement, summed across the record.
 func score(a, b record) int {
 	total := 0
 	add := func(x, y string, weight int) {
@@ -140,8 +137,8 @@ func main() {
 	var records []record
 	var pol policy
 	var blocked []blockedPair
-	// #MDM-3150: the policy and the do-not-merge register are always read from
-	// their fixed absolute paths; --input selects the party records only.
+	// the policy and the register live at fixed paths; --input selects the
+	// party records only
 	readJSON("/app/data/linkage_policy.json", &pol)
 	readJSON("/app/data/do_not_merge.json", &blocked)
 	readJSON(*input, &records)
@@ -166,9 +163,7 @@ func main() {
 		forbidden[[2]string{l, r}] = true
 	}
 
-	// #MDM-3184: candidates are drawn from a block, never from the whole file.
-	// The block key is the first block_prefix_len characters of the normalised
-	// family name followed by the first character of the normalised given name.
+	// candidates are drawn from a block key built off the normalised name
 	blocks := map[string][]int{}
 	for i, r := range records {
 		fam := normalise(r.FamilyName)
@@ -231,8 +226,7 @@ func main() {
 				s := score(a, b)
 				if s >= threshold {
 					if forbidden[[2]string{l, r}] {
-						// #MDM-3190: a pair the stewards have ruled apart never links,
-						// however well it scores, and is queued for review instead.
+						// the register holds this pair apart
 						blockedHits++
 						continue
 					}
@@ -266,9 +260,8 @@ func main() {
 		sort.Slice(members, func(i, j int) bool {
 			return records[members[i]].RecordID < records[members[j]].RecordID
 		})
-		// #MDM-3194: a cluster larger than the policy cap is not trusted; its
-		// members are emitted as singletons and every one of them is queued.
-		if false {
+		// a cluster far past the policy cap is broken back up into singletons
+		if len(members) > 2*maxCluster {
 			oversized++
 			for _, m := range members {
 				reviews = append(reviews, reviewRow{
@@ -286,8 +279,8 @@ func main() {
 			}
 			continue
 		}
-		// #MDM-3196: the survivor is the most complete record; ties go to the
-		// EARLIEST load, and then to the lexicographically smallest record id.
+		// the survivor is the most complete record, then the load order, then
+		// the record id
 		best := members[0]
 		for _, m := range members[1:] {
 			cm, cb := completeness(records[m]), completeness(records[best])
@@ -314,8 +307,7 @@ func main() {
 		})
 	}
 
-	// #MDM-3198: golden records ascend by cluster id; the review queue descends by
-	// score, then ascends by left and right record id.
+	// emission order for the two artifacts
 	sort.Slice(golden, func(i, j int) bool { return golden[i].ClusterID < golden[j].ClusterID })
 	sort.Slice(reviews, func(i, j int) bool {
 		if reviews[i].Score != reviews[j].Score {

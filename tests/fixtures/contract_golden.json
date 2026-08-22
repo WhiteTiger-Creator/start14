@@ -8,7 +8,7 @@
     "output_dir": "--output-dir selects the output directory; default /app/output"
   },
   "contract_version": "party-link-v1",
-  "description": "Output contract for the party-linkage engine. Shapes, paths, field lists and sort orders only; no derivation rule lives here.",
+  "description": "Output contract for the party-linkage engine. Shapes, paths, field lists, sort orders and what each summary counter counts; no derivation rule lives here.",
   "output_dir_contents": "after a run the output directory holds exactly the three files named under outputs and nothing else; any other file already sitting there when the run starts is removed before the artifacts are written, so a run never presents an earlier run's leftovers as its own output",
   "outputs": {
     "golden_records": {
@@ -49,6 +49,16 @@
     },
     "summary": {
       "container": "object",
+      "counters": {
+        "block_count": "distinct block keys built from those records, counting a key that holds a single record as much as one that holds many",
+        "cluster_count": "golden records emitted",
+        "do_not_merge_block_count": "pairs scoring at or above the match threshold that the register held apart, counted per pair",
+        "link_count": "qualifying pairs that linked: pairs scoring at or above the match threshold that the do-not-merge register does not hold apart, counted per pair and not per union, so a pair whose two records already share a cluster still counts",
+        "merged_cluster_count": "golden records whose member_count is greater than one",
+        "oversized_cluster_count": "clusters dissolved for exceeding the policy's maximum cluster size",
+        "record_count": "records read from the input party file",
+        "review_count": "rows written to the review queue"
+      },
       "field_types": {
         "block_count": "integer",
         "cluster_count": "integer",
