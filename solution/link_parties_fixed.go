@@ -319,12 +319,52 @@ func main() {
 		for _, m := range members {
 			ids = append(ids, records[m].RecordID)
 		}
+		// #MDM-3220: the golden record is ASSEMBLED, not copied off the survivor.
+		// Each field is taken from the most complete member carrying a non-empty
+		// value for that field, ties to the earliest load then the smallest id, so
+		// a gap in the survivor's row is filled by a sibling that has it.
 		s := records[best]
+		pick := func(get func(record) string) string {
+			chosen := -1
+			for _, m := range members {
+				if normalise(get(records[m])) == "" {
+					continue
+				}
+				if chosen < 0 {
+					chosen = m
+					continue
+				}
+				cm, cc := completeness(records[m]), completeness(records[chosen])
+				switch {
+				case cm > cc:
+					chosen = m
+				case cm == cc && records[m].LoadedOnDay < records[chosen].LoadedOnDay:
+					chosen = m
+				case cm == cc && records[m].LoadedOnDay == records[chosen].LoadedOnDay &&
+					records[m].RecordID < records[chosen].RecordID:
+					chosen = m
+				}
+			}
+			if chosen < 0 {
+				return ""
+			}
+			return get(records[chosen])
+		}
+		assembled := record{
+			GivenName:  pick(func(r record) string { return r.GivenName }),
+			FamilyName: pick(func(r record) string { return r.FamilyName }),
+			Street:     pick(func(r record) string { return r.Street }),
+			City:       pick(func(r record) string { return r.City }),
+			PostalCode: pick(func(r record) string { return r.PostalCode }),
+			BornOn:     pick(func(r record) string { return r.BornOn }),
+		}
 		golden = append(golden, goldenRecord{
 			ClusterID: records[members[0]].RecordID, SurvivorID: s.RecordID,
-			MemberIDs: ids, GivenName: s.GivenName, FamilyName: s.FamilyName,
-			Street: s.Street, City: s.City, PostalCode: s.PostalCode, BornOn: s.BornOn,
-			MemberCount: len(members), Completeness: completeness(s),
+			MemberIDs: ids, GivenName: assembled.GivenName, FamilyName: assembled.FamilyName,
+			Street: assembled.Street, City: assembled.City, PostalCode: assembled.PostalCode,
+			BornOn: assembled.BornOn,
+			// completeness of the assembled record, which can exceed the survivor's
+			MemberCount: len(members), Completeness: completeness(assembled),
 		})
 	}
 

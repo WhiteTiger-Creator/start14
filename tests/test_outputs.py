@@ -292,6 +292,41 @@ def test_completeness_outranks_the_load_order():
     assert golden[0]["completeness"] == 6
 
 
+def test_golden_record_is_assembled_field_by_field_not_copied_from_the_survivor():
+    """#MDM-3220: a gap in the survivor's row is filled by a sibling that has it.
+
+    The obvious reading -- the survivor's record IS the golden record -- is what
+    the shipped engine does, and it loses a field the cluster demonstrably knows.
+    Here the survivor is the more complete record but has no postal code, while a
+    less complete sibling carries one; the assembled record must take it, and its
+    completeness must be the assembled record's rather than the survivor's.
+    """
+    _, _, golden, _ = _probe([
+        _rec("REC-000001", "halvorsen", day=5, postal_code=""),
+        _rec("REC-000002", "halvorsen", day=9, born_on=""),
+    ])
+    assert len(golden) == 1, golden
+    row = golden[0]
+    # Both carry five of six fields, so the tie goes to the earlier load and
+    # REC-000001 survives -- and it is the one missing the postal code.
+    assert row["survivor_id"] == "REC-000001", row["survivor_id"]
+    assert row["postal_code"] == "A11", "the postal code its sibling carried was dropped"
+    assert row["born_on"] == "1980-01-01"
+    assert row["completeness"] == 6, (
+        "completeness must describe the assembled record, not the survivor's five")
+
+
+def test_a_field_no_member_fills_stays_empty():
+    """Assembly invents nothing: a field absent from every member stays empty."""
+    _, _, golden, _ = _probe([
+        _rec("REC-000001", "ingemarsson", day=5, born_on=""),
+        _rec("REC-000002", "ingemarsson", day=9, born_on=""),
+    ])
+    assert len(golden) == 1, golden
+    assert golden[0]["born_on"] == "", "assembly invented a value no member held"
+    assert golden[0]["completeness"] == 5
+
+
 def test_empty_field_is_no_evidence_rather_than_disagreement():
     """A field missing on one side neither adds nor removes score.
 

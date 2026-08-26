@@ -204,6 +204,8 @@ How the party-linkage engine is *meant* to behave -- the recovery of the truncat
 
 - 2026-06-22: Stewardship stand-up recorded a routine note against the CRM feed for window 1174. The manual review backlog was cleared with no amendment raised.
 
+> **Governance decision (2026-06-03 - #MDM-3220)** Rosa: golden record assembly, final. This settles what #MDM-3196 left open by naming only the survivor. The survivor still identifies the cluster and supplies `survivor_id`, but the golden record is ASSEMBLED rather than copied: each of `given_name`, `family_name`, `street`, `city`, `postal_code` and `born_on` is taken independently from the cluster member with the highest completeness that carries a non-empty value for THAT field, ties going to the earliest loaded record and then to the lexicographically smallest record id. A field no member fills stays empty. `completeness` reports the completeness of the ASSEMBLED record, not of the survivor, so a golden record can be more complete than any single member of its cluster. Reading the survivor's row straight through leaves gaps a sibling could have filled and is wrong; a singleton cluster is unaffected because it assembles from itself.
+
 > **Governance decision (2026-06-03 - #MDM-3210)** Priya: Linkage policy baseline, read from /app/data/linkage_policy.json at that fixed absolute path. Any field the policy file omits keeps its baseline: match_threshold = 62; review_floor = 48; block_prefix_len = 4; max_cluster_size = 12.
 
 - 2026-06-09: Stewardship stand-up recorded a routine note against the CRM feed for window 1175. The manual review backlog was cleared with no amendment raised.
