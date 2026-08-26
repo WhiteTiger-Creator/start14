@@ -22,7 +22,16 @@ Three February drafts were reversed in the May review and one March interim was 
 rule must be traced to its FINAL dated decision: candidates are drawn only from a derived block
 rather than compared file-wide, a pair on the do-not-merge register is reported rather than skipped
 in silence, a cluster larger than the policy cap is dissolved into singletons rather than trusted,
-and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest.
+and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. A
+later amendment makes the clustering itself the hard part: transitive linking still forms the
+groups, but a group of three or more is published only if it is COHESIVE -- every pair of its
+members scoring at or above the threshold in its own right, including pairs no block ever proposed
+and pairs that never linked, and no pair of them named on the register, which is never cohesive
+whatever it scores. A group that is not cohesive loses its weakest accepted link and is formed
+again from what remains, and whatever that leaves is judged the same way in turn. Cutting the links
+below some fixed score in one pass, or judging only the pairs that linked, both give a different
+partition rather than a slightly different one, and the cap falls on what the cutting leaves rather
+than on the chained groups the links first produced.
 
 The difficulty is that none of those four is visible in the code that has to change. The shipped
 engine reads as a working linkage run: it blocks, it scores, it clusters, it emits. Each reversal
@@ -56,8 +65,11 @@ normalises for comparison only (#MDM-3182), draws candidates from blocks keyed o
 family-name prefix and given-name initial (#MDM-3184), scores each in-block pair on the board's
 field weights treating an empty field as no evidence (#MDM-3186), links at or above the threshold
 except where the do-not-merge register forbids it and queues those instead (#MDM-3190), unions the
-links transitively, dissolves any cluster over the cap into singletons and queues each of them
-(#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id
+links transitively, settles each chained group into cohesive clusters by cutting its weakest
+accepted link and forming it again from the links that remain until every group of three or more
+has every pair at or above the threshold and none of them on the register, queueing each cut as
+chain_broken and counting it (#MDM-3230), dissolves any cluster still over the cap into singletons
+and queues each of them (#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id
 (#MDM-3196) but does NOT copy the golden values off it: each field is assembled
 independently from the cluster member with the highest completeness carrying a non-empty
 value for that field, ties to the earliest load then the smallest record id, with a field
@@ -86,7 +98,10 @@ one where no member fills a field, so it stays empty rather than being invented:
 any shared block is never compared however well it would score, one proves a do-not-merge pair is
 queued rather than silently dropped, one proves an oversized cluster is dissolved into singletons,
 and one proves the survivor of a completeness tie is the earliest loaded record rather than the
-freshest. The run is timed against the ninety-second budget the contract publishes. The frozen
+freshest. Three more pin the cohesion rule: a chain whose ends score under the threshold is cut at
+its weaker link and not at its stronger, a group every pair of which agrees is left whole, and a
+pair the register names is kept out of one cluster even where a third record would reach between
+them and every pair scores alike, the tie sending the cut to the pair that sorts first. The run is timed against the ninety-second budget the contract publishes. The frozen
 snapshot /app/workflow/.link_parties.original.go is asserted present by hash and wrong by output.
 Confirmed locally in the real two-container flow: after solve.sh the verifier gives reward 1, a
 fresh environment with no solve.sh gives 0, and so does an environment where the engine is repaired

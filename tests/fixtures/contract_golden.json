@@ -42,7 +42,8 @@
       "reasons": [
         "do_not_merge",
         "below_threshold",
-        "cluster_too_large"
+        "cluster_too_large",
+        "chain_broken"
       ],
       "serialisation": "one compact JSON object per line, trailing newline",
       "sort": "descending by score, then ascending by left then right"
@@ -51,6 +52,7 @@
       "container": "object",
       "counters": {
         "block_count": "distinct block keys built from those records, counting a key that holds a single record as much as one that holds many",
+        "chain_broken_link_count": "accepted links cut to leave a cohesive cluster, counted per link cut",
         "cluster_count": "golden records emitted",
         "do_not_merge_block_count": "pairs scoring at or above the match threshold that the register held apart, counted per pair",
         "link_count": "qualifying pairs that linked: pairs scoring at or above the match threshold that the do-not-merge register does not hold apart, counted per pair and not per union, so a pair whose two records already share a cluster still counts",
@@ -61,6 +63,7 @@
       },
       "field_types": {
         "block_count": "integer",
+        "chain_broken_link_count": "integer",
         "cluster_count": "integer",
         "do_not_merge_block_count": "integer",
         "effective_block_prefix": "integer",
@@ -84,6 +87,7 @@
         "merged_cluster_count",
         "oversized_cluster_count",
         "do_not_merge_block_count",
+        "chain_broken_link_count",
         "review_count",
         "effective_match_threshold",
         "effective_review_floor",

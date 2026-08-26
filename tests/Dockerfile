@@ -3,12 +3,27 @@ FROM public.ecr.aws/docker/library/python:3.13-slim-bookworm@sha256:01f42367a0a9
 # Verifier dependencies, baked in (no network at trial time). The submitted Go
 # source is recompiled here, so the toolchain is verifier-side too; grading uses
 # the stdlib plus pytest.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends golang-go \
-    && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir \
-        pytest==8.4.1 \
-        pytest-json-ctrf==0.3.5
+RUN set -eux; \
+    for attempt in 1 2 3 4; do \
+        apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update \
+        && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 \
+            install -y --no-install-recommends golang-go \
+        && break; \
+        echo "apt attempt $attempt failed; retrying"; \
+        rm -rf /var/lib/apt/lists/*; \
+        sleep $((attempt * 5)); \
+        [ "$attempt" -lt 4 ] || exit 1; \
+    done; \
+    rm -rf /var/lib/apt/lists/*; \
+    for attempt in 1 2 3 4; do \
+        pip install --no-cache-dir --timeout 30 --retries 3 \
+            pytest==8.4.1 \
+            pytest-json-ctrf==0.3.5 \
+        && break; \
+        echo "pip attempt $attempt failed; retrying"; \
+        sleep $((attempt * 5)); \
+        [ "$attempt" -lt 4 ] || exit 1; \
+    done
 
 # Landing directory for the declared artifact (/app) collected from the agent's
 # environment. Its parent must exist in the verifier image before the copy.

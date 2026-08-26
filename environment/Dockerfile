@@ -12,11 +12,28 @@ ENV GOCACHE=/tmp/gocache \
 # dependency layers so a change to those never invalidates the WORKDIR layer.
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        tmux \
-        asciinema \
-    && rm -rf /var/lib/apt/lists/*
+# The recording tools the trial harness expects, plus the certificate store and
+# fetch tools its setup assumes are present. Mirrors drop connections often
+# enough that a single unguarded fetch is the most common way this image fails
+# to build, so each attempt starts from a clean list and backs off.
+RUN set -eux; \
+    for attempt in 1 2 3 4; do \
+        apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update \
+        && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 \
+            install -y --no-install-recommends \
+                ca-certificates \
+                curl \
+                git \
+                procps \
+                tmux \
+                asciinema \
+        && break; \
+        echo "apt attempt $attempt failed; retrying"; \
+        rm -rf /var/lib/apt/lists/*; \
+        sleep $((attempt * 5)); \
+        [ "$attempt" -lt 4 ] || exit 1; \
+    done; \
+    rm -rf /var/lib/apt/lists/*
 
 # /app/data/party_records.json ships TRUNCATED exactly as the failed migration
 # left it; the pre-migration extract and the change journal beside it are the

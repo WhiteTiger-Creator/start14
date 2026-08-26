@@ -1,45 +1,47 @@
 {
   "alternate": {
-    "golden_digest": "821dc26a69e8fa473f15f7bae46ba38a45ef32a680faf209b92de0980f3f838e",
-    "review_digest": "69aa93d1d3ed473cb29f353320a0c1aaf60cc8f4f19a313940c380f2d6e0cf4c",
+    "golden_digest": "6b776f390ee76848bb53e87df13d892bd37885b5b6ba8f3ecd6d5a9980389fe6",
+    "review_digest": "487a5da3b41b11f9f74aba3fed3f49a00b5cbc83c6e2149cf91fbac9fe8896e6",
     "summary": {
       "block_count": 6222,
-      "cluster_count": 36208,
+      "chain_broken_link_count": 1427,
+      "cluster_count": 36304,
       "do_not_merge_block_count": 163,
       "effective_block_prefix": 4,
       "effective_match_threshold": 62,
       "effective_max_cluster": 12,
       "effective_review_floor": 48,
       "link_count": 49791,
-      "merged_cluster_count": 16526,
-      "oversized_cluster_count": 117,
+      "merged_cluster_count": 16537,
+      "oversized_cluster_count": 112,
       "record_count": 61099,
-      "review_count": 9154,
+      "review_count": 10464,
       "schema_version": "party-link-v1"
     }
   },
   "broken_engine_sha256": "4f1b53c4dc8c1bfd60bdf8130c883bb4d31793000633f4c2db2b0e7f411bef3b",
   "primary": {
-    "golden_digest": "725bbc9809a5bec5160b23812a497e8b85eec007e8cc5c892b5a7f4c8cdcb804",
-    "review_digest": "4401f8a952893198eaac2bd9274884bfb2f9ec34c1f7333f175c47f13fd96dd8",
+    "golden_digest": "e9b29f0f0c4470b285d819de6b6dfb72b83dc9d34d07f0ab644748a983f104e0",
+    "review_digest": "9ca8c614c439b5669dc9ebde1fc0a2f102b6d7eea1bd4fa7fa90fd2bf9fee314",
     "summary": {
       "block_count": 6222,
-      "cluster_count": 36173,
+      "chain_broken_link_count": 888,
+      "cluster_count": 36242,
       "do_not_merge_block_count": 164,
       "effective_block_prefix": 4,
       "effective_match_threshold": 62,
       "effective_max_cluster": 12,
       "effective_review_floor": 48,
       "link_count": 49941,
-      "merged_cluster_count": 16557,
-      "oversized_cluster_count": 117,
+      "merged_cluster_count": 16564,
+      "oversized_cluster_count": 114,
       "record_count": 61099,
-      "review_count": 9004,
+      "review_count": 9817,
       "schema_version": "party-link-v1"
     }
   },
   "recovered_master_digest": "7b0b5568d6e6131e75aae508816f183a9ad8f4a625d52b527b97e7164be0a974",
   "recovered_record_count": 61099,
-  "rule_sources_digest": "ffc0ac3d9768cd50961f892a51c843dbcea9544835f4921bb2c711e95a2ea83e",
+  "rule_sources_digest": "7782834d321f7ed5a3b48594ebce6b3ad91a1646c3e475fbf370088a789a0dc0",
   "shipped_truncated_digest": "a33ab279e1950ea21beb50662f0cb75ec97d014f781c02f74a6656e6c4e8926e"
 }

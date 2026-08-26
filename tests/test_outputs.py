@@ -64,6 +64,10 @@ def test_recovery_sources_are_intact():
     live = {n: hashlib.sha256(Path(p).read_bytes()).hexdigest() for n, p in (
         ("extract", EXTRACT_PATH), ("journal", JOURNAL_PATH),
         ("policy", DATA / "linkage_policy.json"), ("dnm", DATA / "do_not_merge.json"),
+        # instruction.md names the contract among the files that come back
+        # byte-identical, and the schema comparison beside this one is satisfied
+        # by any file that merely parses the same.
+        ("contract", SPEC_PATH),
         ("log", LOG_PATH))}
     assert _digest(live) == FIXTURE["rule_sources_digest"]
 
@@ -85,6 +89,20 @@ def test_recovered_master_is_sorted():
     """The master ascends by record_id."""
     ids = [r["record_id"] for r in _load_json(MASTER_PATH)]
     assert ids == sorted(ids)
+
+
+def test_the_rebuilt_master_uses_the_serialisation_the_contract_states():
+    """The master is graded on its bytes too, not only on its content.
+
+    reconciled_inputs in the contract spells the rebuilt file out as a
+    two-space-indented JSON array with a trailing newline, and every other check
+    on it goes through the whitespace-insensitive digest, which one long
+    unindented line would satisfy just as well.
+    """
+    raw = MASTER_PATH.read_text(encoding="utf-8")
+    assert raw.endswith("\n") and not raw.endswith("\n\n"), "no trailing newline"
+    assert raw == json.dumps(json.loads(raw), indent=2) + "\n", (
+        "the rebuilt master is not two-space-indented JSON")
 
 
 def test_wrong_replays_differ_from_the_governed_master():
@@ -195,8 +213,8 @@ def test_every_record_lands_in_exactly_one_cluster(primary_outputs):
     assert summary["record_count"] == len(members)
 
 
-def test_all_three_review_reasons_occur(primary_outputs):
-    """The graded master exercises every documented review reason."""
+def test_every_documented_review_reason_occurs(primary_outputs):
+    """The graded master exercises every review reason the contract documents."""
     _, _, _, reviews = primary_outputs
     assert {r["reason"] for r in reviews} == REVIEW_REASONS
 
@@ -257,6 +275,80 @@ def test_do_not_merge_pair_is_queued_not_silently_dropped():
     assert [g["member_count"] for g in golden] == [1, 1]
     assert [(r["left"], r["right"], r["reason"]) for r in reviews] == [
         ("REC-000001", "REC-000002", "do_not_merge")]
+
+
+def test_a_cluster_reached_only_by_a_chain_is_cut_at_its_weakest_link():
+    """#MDM-3230: three records joined by a chain are not a cluster.
+
+    The first and last agree on family and given name alone -- 52, under the
+    threshold -- so the group is only reached by walking through the middle
+    record. Cohesion is judged on that pair too, though it never linked, and the
+    weaker of the two accepted links is the one that goes.
+    """
+    _, summary, golden, reviews = _probe([
+        _rec("REC-000001", "smithxx", born_on="1980-01-01", postal_code="A11",
+             street="1 a street", city="arden"),
+        _rec("REC-000002", "smithxx", born_on="1980-01-01", postal_code="B22",
+             street="2 b street", city="brent"),
+        _rec("REC-000003", "smithxx", born_on="1999-09-09", postal_code="B22",
+             street="3 c street", city="crown"),
+    ])
+    assert summary["link_count"] == 2, "the chain did not form in the first place"
+    assert summary["chain_broken_link_count"] == 1
+    cuts = [r for r in reviews if r["reason"] == "chain_broken"]
+    assert cuts == [{"left": "REC-000002", "right": "REC-000003", "score": 70,
+                     "reason": "chain_broken"}], cuts
+    assert [(g["cluster_id"], g["member_ids"]) for g in golden] == [
+        ("REC-000001", ["REC-000001", "REC-000002"]),
+        ("REC-000003", ["REC-000003"])]
+
+
+def test_a_cluster_every_pair_agrees_on_is_left_whole():
+    """The cut falls on chains, not on clusters that are cohesive already.
+
+    All three pairs score 72 here, so nothing is cut and the three stay one
+    cluster -- an engine that split every group of three would fail this.
+    """
+    _, summary, golden, reviews = _probe([
+        _rec("REC-000001", "smithxx", born_on="1980-01-01", postal_code="A11",
+             street="1 a street", city="arden"),
+        _rec("REC-000002", "smithxx", born_on="1980-01-01", postal_code="B22",
+             street="2 b street", city="brent"),
+        _rec("REC-000003", "smithxx", born_on="1980-01-01", postal_code="C33",
+             street="3 c street", city="crown"),
+    ])
+    assert summary["chain_broken_link_count"] == 0
+    assert [r for r in reviews if r["reason"] == "chain_broken"] == []
+    assert [g["member_count"] for g in golden] == [3]
+
+
+def test_a_registered_pair_is_never_cohesive_however_well_it_scores():
+    """A do-not-merge pair may not be reached through a third record either.
+
+    Every pair here scores 72, so the group is cohesive on the numbers alone; the
+    register still holds the first and last apart, and #MDM-3190 only stops them
+    linking DIRECTLY. Cohesion is what keeps them out of one cluster, and the tie
+    on score sends the cut to the pair that sorts first.
+    """
+    _, summary, golden, reviews = _probe([
+        _rec("REC-000001", "smithxx", born_on="1980-01-01", postal_code="A11",
+             street="1 a street", city="arden"),
+        _rec("REC-000002", "smithxx", born_on="1980-01-01", postal_code="B22",
+             street="2 b street", city="brent"),
+        _rec("REC-000003", "smithxx", born_on="1980-01-01", postal_code="C33",
+             street="3 c street", city="crown"),
+    ], do_not_merge=[{"left": "REC-000001", "right": "REC-000003"}])
+    assert summary["do_not_merge_block_count"] == 1
+    assert summary["chain_broken_link_count"] == 1
+    cuts = [r for r in reviews if r["reason"] == "chain_broken"]
+    assert cuts == [{"left": "REC-000001", "right": "REC-000002", "score": 72,
+                     "reason": "chain_broken"}], cuts
+    assert [(g["cluster_id"], g["member_ids"]) for g in golden] == [
+        ("REC-000001", ["REC-000001"]),
+        ("REC-000002", ["REC-000002", "REC-000003"])]
+    together = [g for g in golden
+                if {"REC-000001", "REC-000003"} <= set(g["member_ids"])]
+    assert not together, "the register's pair still shares a cluster"
 
 
 def test_oversized_cluster_is_dissolved_into_singletons():

@@ -145,6 +145,128 @@ func policyValue(pol policy, field string, baseline int) int {
 	return baseline
 }
 
+// acceptedLink is a pair that scored at or above the threshold and was not held
+// apart by the register, kept because #MDM-3230 may have to form a cluster again
+// from the links that survive a cut.
+type acceptedLink struct {
+	a, b  int
+	score int
+}
+
+// cohesive reports whether every pair of these records may sit in one cluster:
+// #MDM-3230 asks each pair for its own score, not merely the pairs that linked,
+// and a pair the register names is never cohesive whatever it scores.
+func cohesive(members []int, records []record, forbidden map[[2]string]bool, threshold int) bool {
+	if len(members) < 3 {
+		return true
+	}
+	for x := 0; x < len(members); x++ {
+		for y := x + 1; y < len(members); y++ {
+			a, b := records[members[x]], records[members[y]]
+			l, r := a.RecordID, b.RecordID
+			if l > r {
+				l, r = r, l
+			}
+			if forbidden[[2]string{l, r}] {
+				return false
+			}
+			if score(a, b) < threshold {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// settle turns one chained group into the cohesive clusters #MDM-3230 publishes.
+// A group of three or more that is not cohesive loses its weakest accepted link
+// -- lowest score, ties going to the pair that sorts first -- and is formed
+// again from the links that remain; each part is then judged the same way.
+func settle(members []int, links []acceptedLink, records []record,
+	forbidden map[[2]string]bool, threshold int) ([][]int, []acceptedLink) {
+	if cohesive(members, records, forbidden, threshold) {
+		return [][]int{members}, nil
+	}
+	pairKey := func(link acceptedLink) [2]string {
+		l, r := records[link.a].RecordID, records[link.b].RecordID
+		if l > r {
+			l, r = r, l
+		}
+		return [2]string{l, r}
+	}
+	weakest := 0
+	for i := 1; i < len(links); i++ {
+		if links[i].score != links[weakest].score {
+			if links[i].score < links[weakest].score {
+				weakest = i
+			}
+			continue
+		}
+		here, best := pairKey(links[i]), pairKey(links[weakest])
+		if here[0] < best[0] || (here[0] == best[0] && here[1] < best[1]) {
+			weakest = i
+		}
+	}
+	cut := links[weakest]
+	remaining := make([]acceptedLink, 0, len(links)-1)
+	remaining = append(remaining, links[:weakest]...)
+	remaining = append(remaining, links[weakest+1:]...)
+
+	// form the group again from what is left of its links
+	root := map[int]int{}
+	for _, m := range members {
+		root[m] = m
+	}
+	var find func(int) int
+	find = func(x int) int {
+		for root[x] != x {
+			root[x] = root[root[x]]
+			x = root[x]
+		}
+		return x
+	}
+	for _, link := range remaining {
+		ra, rb := find(link.a), find(link.b)
+		if ra != rb {
+			if ra < rb {
+				root[rb] = ra
+			} else {
+				root[ra] = rb
+			}
+		}
+	}
+	parts := map[int][]int{}
+	for _, m := range members {
+		parts[find(m)] = append(parts[find(m)], m)
+	}
+	order := make([]int, 0, len(parts))
+	for key := range parts {
+		order = append(order, key)
+	}
+	sort.Slice(order, func(i, j int) bool {
+		return records[parts[order[i]][0]].RecordID < records[parts[order[j]][0]].RecordID
+	})
+
+	clusters := make([][]int, 0, len(parts))
+	cuts := []acceptedLink{cut}
+	for _, key := range order {
+		part := parts[key]
+		sort.Slice(part, func(i, j int) bool {
+			return records[part[i]].RecordID < records[part[j]].RecordID
+		})
+		inside := make([]acceptedLink, 0, len(remaining))
+		for _, link := range remaining {
+			if find(link.a) == key {
+				inside = append(inside, link)
+			}
+		}
+		deeper, deeperCuts := settle(part, inside, records, forbidden, threshold)
+		clusters = append(clusters, deeper...)
+		cuts = append(cuts, deeperCuts...)
+	}
+	return clusters, cuts
+}
+
 func main() {
 	input := flag.String("input", "/app/data/party_records.json", "party records")
 	outputDir := flag.String("output-dir", "/app/output", "output directory")
@@ -225,6 +347,7 @@ func main() {
 	}
 
 	reviews := make([]reviewRow, 0)
+	accepted := make([]acceptedLink, 0)
 	linkCount := 0
 	blockedHits := 0
 	keys := make([]string, 0, len(blocks))
@@ -251,6 +374,7 @@ func main() {
 						continue
 					}
 					union(members[x], members[y])
+					accepted = append(accepted, acceptedLink{members[x], members[y], s})
 					linkCount++
 				} else if s >= reviewFloor {
 					reviews = append(reviews, reviewRow{l, r, s, "below_threshold"})
@@ -259,27 +383,52 @@ func main() {
 		}
 	}
 
-	groups := map[int][]int{}
+	chained := map[int][]int{}
 	for i := range records {
 		root := find(i)
-		groups[root] = append(groups[root], i)
+		chained[root] = append(chained[root], i)
 	}
 
-	roots := make([]int, 0, len(groups))
-	for root := range groups {
-		roots = append(roots, root)
+	// #MDM-3230: a cluster reached only by walking a chain is not published. Each
+	// chained group is settled into cohesive parts before anything downstream
+	// reads it, and every link cut on the way is queued and counted.
+	chainRoots := make([]int, 0, len(chained))
+	for root := range chained {
+		chainRoots = append(chainRoots, root)
 	}
-	sort.Slice(roots, func(i, j int) bool {
-		return records[groups[roots[i]][0]].RecordID < records[groups[roots[j]][0]].RecordID
+	sort.Slice(chainRoots, func(i, j int) bool {
+		return records[chained[chainRoots[i]][0]].RecordID < records[chained[chainRoots[j]][0]].RecordID
 	})
-
-	golden := make([]goldenRecord, 0, len(groups))
-	oversized := 0
-	for _, root := range roots {
-		members := groups[root]
+	byMember := map[int][]acceptedLink{}
+	for _, link := range accepted {
+		root := find(link.a)
+		byMember[root] = append(byMember[root], link)
+	}
+	settled := make([][]int, 0, len(chained))
+	chainCuts := 0
+	for _, root := range chainRoots {
+		members := append([]int{}, chained[root]...)
 		sort.Slice(members, func(i, j int) bool {
 			return records[members[i]].RecordID < records[members[j]].RecordID
 		})
+		parts, cuts := settle(members, byMember[root], records, forbidden, threshold)
+		settled = append(settled, parts...)
+		for _, cut := range cuts {
+			l, r := records[cut.a].RecordID, records[cut.b].RecordID
+			if l > r {
+				l, r = r, l
+			}
+			reviews = append(reviews, reviewRow{l, r, cut.score, "chain_broken"})
+		}
+		chainCuts += len(cuts)
+	}
+	sort.Slice(settled, func(i, j int) bool {
+		return records[settled[i][0]].RecordID < records[settled[j][0]].RecordID
+	})
+
+	golden := make([]goldenRecord, 0, len(settled))
+	oversized := 0
+	for _, members := range settled {
 		// #MDM-3194: a cluster larger than the policy cap is not trusted; its
 		// members are emitted as singletons and every one of them is queued.
 		if maxCluster > 0 && len(members) > maxCluster {
@@ -411,6 +560,7 @@ func main() {
 		"merged_cluster_count":      merged,
 		"oversized_cluster_count":   oversized,
 		"do_not_merge_block_count":  blockedHits,
+		"chain_broken_link_count":   chainCuts,
 		"review_count":              len(reviews),
 		"effective_match_threshold": threshold,
 		"effective_review_floor":    reviewFloor,
