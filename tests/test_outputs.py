@@ -400,6 +400,13 @@ def test_stale_files_are_cleared_from_the_output_directory():
     junk = out_dir / "leftover_from_last_run.json"
     junk.write_text('{"stale": true}\n', encoding="utf-8")
     os.chmod(junk, 0o666)
+    # A directory counts as a leftover too: the contract says the output directory
+    # holds exactly the three artifacts, not three artifacts and a stray folder.
+    stale_dir = out_dir / "leftover_dir"
+    stale_dir.mkdir()
+    (stale_dir / "inner.json").write_text("{}\n", encoding="utf-8")
+    os.chmod(stale_dir / "inner.json", 0o666)
+    os.chmod(stale_dir, 0o777)
     result = _run_agent([binary, "--output-dir", str(out_dir)], cwd=work)
     assert result.returncode == 0, result.stderr
     assert sorted(q.name for q in out_dir.iterdir()) == [

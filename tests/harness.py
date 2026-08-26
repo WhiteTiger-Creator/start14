@@ -82,11 +82,13 @@ def _write_json(path, value):
 
 
 def _build(script_path: Path) -> str:
-    """Compile the submitted single-file planner, cached per source path.
+    """Compile the submitted linkage engine, cached per source path.
 
     Compilation runs as root: it is the trusted verifier's own action. The source
     is copied to a temp dir as main.go first so the frozen snapshot and any
-    sibling files in /app/workflow never join the build.
+    sibling files in /app/workflow never join the build. instruction.md states
+    that the engine is compiled from that one file, so this matches what the
+    submission was asked for.
     """
     key = str(script_path)
     if key in _BIN_CACHE:

@@ -352,9 +352,10 @@ func main() {
 	// run left behind is cleared first rather than presented as this run's output.
 	if entries, err := os.ReadDir(*outputDir); err == nil {
 		for _, entry := range entries {
-			if !entry.IsDir() {
-				os.Remove(*outputDir + "/" + entry.Name())
-			}
+			// RemoveAll, not Remove: a directory an earlier run left behind would
+			// otherwise survive and the directory would hold more than the three
+			// contracted artifacts.
+			os.RemoveAll(*outputDir + "/" + entry.Name())
 		}
 	}
 	if err := os.MkdirAll(*outputDir, 0o755); err != nil {
