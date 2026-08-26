@@ -31,7 +31,8 @@ a dissolution branch behind a threshold set well above the policy cap, a tie bro
 load -- so an engineer who reads the file rather than the minute book finds nothing obviously
 broken, and the run it produces is plausible everywhere. The board's minute book records only where
 it departed from ordinary practice and never restates what blocking, a match weight or survivorship
-means, so each of the four has to be traced from a February draft, through whatever revised it, to
+means, so each of the five -- blocking, the do-not-merge register, the oversized-cluster cap, the
+survivorship tie-break and the field-by-field assembly of the golden record -- has to be traced from a February draft, through whatever revised it, to
 the May decision that governs; taking the newest entry per subject, or the first that reads as
 final, gets a different answer on at least two of them.
 
@@ -56,8 +57,12 @@ family-name prefix and given-name initial (#MDM-3184), scores each in-block pair
 field weights treating an empty field as no evidence (#MDM-3186), links at or above the threshold
 except where the do-not-merge register forbids it and queues those instead (#MDM-3190), unions the
 links transitively, dissolves any cluster over the cap into singletons and queues each of them
-(#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id and
-takes the golden values from that record alone (#MDM-3196), and emits summary.json,
+(#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id
+(#MDM-3196) but does NOT copy the golden values off it: each field is assembled
+independently from the cluster member with the highest completeness carrying a non-empty
+value for that field, ties to the earliest load then the smallest record id, with a field
+no member fills left empty and completeness reported for the assembled record (#MDM-3220),
+and emits summary.json,
 golden_records.json and review_queue.jsonl in the contracted orders (#MDM-3198).
 '''
 
@@ -74,7 +79,10 @@ with go build rather than trusting any delivered binary, runs it under an unpriv
 via setpriv, a scrubbed environment, inputs staged into a candidate-writable work area) on both the
 recovered master and a held-out alternate master, and compares summary.json in full plus SHA-256
 digests of golden_records.json and review_queue.jsonl against sealed fixtures generated from the
-reference. Crafted micro-instances pin each reversed rule independently: one proves a pair outside
+reference. Crafted micro-instances pin each of the five reversed rules independently, the last two of
+them covering the golden record's assembly -- one where the survivor is missing a field a
+sibling carries, so the assembled record is more complete than any member of its cluster, and
+one where no member fills a field, so it stays empty rather than being invented: one proves a pair outside
 any shared block is never compared however well it would score, one proves a do-not-merge pair is
 queued rather than silently dropped, one proves an oversized cluster is dissolved into singletons,
 and one proves the survivor of a completeness tie is the earliest loaded record rather than the
