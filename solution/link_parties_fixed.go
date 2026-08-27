@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 type record struct {
@@ -91,7 +92,10 @@ func normalise(s string) string {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 			b.WriteRune(r)
 			lastSpace = false
-		case r == ' ' || r == '\t':
+		case unicode.IsSpace(r):
+			// #MDM-3182 collapses runs of WHITESPACE, not runs of space and tab.
+			// Treating a newline as an ordinary droppable character joined the
+			// words either side of it and changed the field's agreement score.
 			if !lastSpace {
 				b.WriteRune(' ')
 				lastSpace = true

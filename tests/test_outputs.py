@@ -265,6 +265,54 @@ def test_candidates_come_only_from_a_shared_block():
     assert [g["member_count"] for g in golden] == [1, 1]
 
 
+def test_a_record_with_no_family_name_joins_no_block():
+    """#MDM-3184: an empty family name takes a record out of blocking entirely.
+
+    Two such records agree on every other field and would score far above the
+    threshold if they were ever compared. They are not, because neither is in a
+    block, so each is published on its own.
+    """
+    _, summary, golden, _ = _probe([
+        _rec("REC-000001", "", given="alpha"),
+        _rec("REC-000002", "", given="alpha"),
+    ])
+    assert summary["link_count"] == 0, "records without a family name were compared"
+    assert [g["member_count"] for g in golden] == [1, 1]
+
+
+def test_records_with_no_given_name_still_block_together():
+    """#MDM-3184: only an empty FAMILY name takes a record out of blocking.
+
+    Where the given name is empty the key still carries the bar with nothing
+    after it, so these two share a block and are compared. Setting them aside
+    alongside the empty-family case would lose the link.
+    """
+    _, summary, golden, _ = _probe([
+        _rec("REC-000001", "smithxx", given=""),
+        _rec("REC-000002", "smithxx", given=""),
+    ])
+    assert summary["link_count"] == 1, "records without a given name were not compared"
+    assert [g["member_count"] for g in golden] == [2]
+
+
+def test_a_dissolved_cluster_queues_one_row_per_record_naming_it_twice():
+    """#MDM-3194: a cluster_too_large row concerns one record, not a pair.
+
+    It carries that record's own id on both sides and a score of zero, which is
+    also what the queue sorts on.
+    """
+    policy = {"default": dict(BASE_POLICY["default"], max_cluster_size=2)}
+    records = [_rec(f"REC-{i:06d}", "smithxx", day=i) for i in range(1, 4)]
+    _, summary, golden, reviews = _probe(records, policy=policy)
+    dissolved = [r for r in reviews if r["reason"] == "cluster_too_large"]
+    assert len(dissolved) == 3, dissolved
+    for row in dissolved:
+        assert row["left"] == row["right"], row
+        assert row["score"] == 0, row
+    assert {row["left"] for row in dissolved} == {r["record_id"] for r in records}
+    assert [g["member_count"] for g in golden] == [1, 1, 1]
+
+
 def test_do_not_merge_pair_is_queued_not_silently_dropped():
     """A pair on the register does not link and IS reported, per the revision."""
     _, summary, golden, reviews = _probe(

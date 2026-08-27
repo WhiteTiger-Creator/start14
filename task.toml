@@ -1,121 +1,15 @@
-schema_version = "2.0"
 artifacts = ["/app"]
 name = "party-linkage-reconciler"
 
 [metadata]
 author_name = "Jonathan"
 author_email = "jtolbert0175@gmail.com"
-difficulty_explanation = '''
-Restoring this engine is the work of a data-stewardship or master-data engineer picking up after a
-botched migration, and it is a dependent chain rather than a single repair. All of the data is
-synthetic: the party names, addresses, source systems and the stewardship minute book were generated
-for this task and describe no real person, household or system. The migration left
-/app/data/party_records.json holding a truncated prefix of the master, so the first step is to
-rebuild it by replaying the change journal onto the pre-migration extract under the board's final
-recovery decision -- a correction overwriting a field in place, a withdrawal taking a record out
-while the stewards keep it as it then stood, and a reinstatement restoring exactly that held state
-so that corrections posted while the record was out are lost. Every match downstream is wrong if
-that replay is wrong. Only then can the linkage dialect be reconstructed, and the minute book is
-written the way a stewardship board actually writes: it records where the board departed from
-ordinary matching practice and never restates what blocking, a match weight or survivorship means.
-Three February drafts were reversed in the May review and one March interim was revised, so every
-rule must be traced to its FINAL dated decision: candidates are drawn only from a derived block
-rather than compared file-wide, a pair on the do-not-merge register is reported rather than skipped
-in silence, a cluster larger than the policy cap is dissolved into singletons rather than trusted,
-and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. A
-later amendment makes the clustering itself the hard part: transitive linking still forms the
-groups, but a group of three or more is published only if it is COHESIVE -- every pair of its
-members scoring at or above the threshold in its own right, including pairs no block ever proposed
-and pairs that never linked, and no pair of them named on the register, which is never cohesive
-whatever it scores. A group that is not cohesive loses its weakest accepted link and is formed
-again from what remains, and whatever that leaves is judged the same way in turn. Cutting the links
-below some fixed score in one pass, or judging only the pairs that linked, both give a different
-partition rather than a slightly different one, and the cap falls on what the cutting leaves rather
-than on the chained groups the links first produced.
+difficulty_explanation = '''Restoring this engine is the work of a data-stewardship or master-data engineer picking up after a botched migration, and it is a dependent chain rather than a single repair. All of the data is synthetic: the party names, addresses, source systems and the stewardship minute book were generated for this task and describe no real person, household or system. The migration left /app/data/party_records.json holding a truncated prefix of the master, so the first step is to rebuild it by replaying the change journal onto the pre-migration extract under the board's final recovery decision -- a correction overwriting a field in place, a withdrawal taking a record out while the stewards keep it as it then stood, and a reinstatement restoring exactly that held state so that corrections posted while the record was out are lost. Every match downstream is wrong if that replay is wrong. Only then can the linkage dialect be reconstructed, and the minute book is written the way a stewardship board actually writes: it records where the board departed from ordinary matching practice and never restates what blocking, a match weight or survivorship means. Three February drafts were reversed in the May review and one March interim was revised, so every rule must be traced to its FINAL dated decision: candidates are drawn only from a derived block rather than compared file-wide, a pair on the do-not-merge register is reported rather than skipped in silence, a cluster larger than the policy cap is dissolved into singletons rather than trusted, and the survivor of a completeness tie is the EARLIEST loaded record rather than the freshest. A later amendment makes the clustering itself the hard part: transitive linking still forms the groups, but a group of three or more is published only if it is COHESIVE -- every pair of its members scoring at or above the threshold in its own right, including pairs no block ever proposed and pairs that never linked, and no pair of them named on the register, which is never cohesive whatever it scores. A group that is not cohesive loses its weakest accepted link and is formed again from what remains, and whatever that leaves is judged the same way in turn. Cutting the links below some fixed score in one pass, or judging only the pairs that linked, both give a different partition rather than a slightly different one, and the cap falls on what the cutting leaves rather than on the chained groups the links first produced. The difficulty is that none of those four is visible in the code that has to change. The shipped engine reads as a working linkage run: it blocks, it scores, it clusters, it emits. Each reversal sits in it as something that looks deliberate -- a register hit that falls through to the next pair, a dissolution branch behind a threshold set well above the policy cap, a tie broken toward the later load -- so an engineer who reads the file rather than the minute book finds nothing obviously broken, and the run it produces is plausible everywhere. The board's minute book records only where it departed from ordinary practice and never restates what blocking, a match weight or survivorship means, so each of the five -- blocking, the do-not-merge register, the oversized-cluster cap, the survivorship tie-break and the field-by-field assembly of the golden record -- has to be traced from a February draft, through whatever revised it, to the May decision that governs; taking the newest entry per subject, or the first that reads as final, gets a different answer on at least two of them. Both halves must be right at once, and the second cannot be checked without the first: the recovered master runs to sixty-one thousand records, so a replay that loses a reinstated record or keeps a correction posted while a record was withdrawn changes which pairs are even compared, and the wrong answer it produces is a plausible master rather than an obvious failure. An engine repaired against a master that was never rebuilt reports a confident full run over the two thousand seven hundred record prefix the migration left behind, four per cent of the book.'''
 
-The difficulty is that none of those four is visible in the code that has to change. The shipped
-engine reads as a working linkage run: it blocks, it scores, it clusters, it emits. Each reversal
-sits in it as something that looks deliberate -- a register hit that falls through to the next pair,
-a dissolution branch behind a threshold set well above the policy cap, a tie broken toward the later
-load -- so an engineer who reads the file rather than the minute book finds nothing obviously
-broken, and the run it produces is plausible everywhere. The board's minute book records only where
-it departed from ordinary practice and never restates what blocking, a match weight or survivorship
-means, so each of the five -- blocking, the do-not-merge register, the oversized-cluster cap, the
-survivorship tie-break and the field-by-field assembly of the golden record -- has to be traced from a February draft, through whatever revised it, to
-the May decision that governs; taking the newest entry per subject, or the first that reads as
-final, gets a different answer on at least two of them.
+solution_explanation = '''solution/solve.sh drives the two dependent steps inside the environment container. Step one runs solution/recover_parties.go, which implements the board's final recovery decision (#MDM-3170 and #MDM-3174): it starts from /app/data/party_snapshot_pre_migration.json, replays /app/data/party_change_journal.json in ascending seq, applies a correction in place, holds a withdrawn record aside as it then stood, restores exactly that held state on a reinstatement, ignores a change naming an unknown record, and writes the survivors over the truncated /app/data/party_records.json ascending by record id with only the nine source fields. Step two copies solution/link_parties_fixed.go over /app/workflow/link_parties.go and runs it. The engine normalises for comparison only (#MDM-3182), draws candidates from blocks keyed on the normalised family-name prefix and given-name initial (#MDM-3184), scores each in-block pair on the board's field weights treating an empty field as no evidence (#MDM-3186), links at or above the threshold except where the do-not-merge register forbids it and queues those instead (#MDM-3190), unions the links transitively, settles each chained group into cohesive clusters by cutting its weakest accepted link and forming it again from the links that remain until every group of three or more has every pair at or above the threshold and none of them on the register, queueing each cut as chain_broken and counting it (#MDM-3230), dissolves any cluster still over the cap into singletons and queues each of them (#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id (#MDM-3196) but does NOT copy the golden values off it: each field is assembled independently from the cluster member with the highest completeness carrying a non-empty value for that field, ties to the earliest load then the smallest record id, with a field no member fills left empty and completeness reported for the assembled record (#MDM-3220), and emits summary.json, golden_records.json and review_queue.jsonl in the contracted orders (#MDM-3198).'''
 
-Both halves must be right at once, and the second cannot be checked without the first: the recovered
-master runs to sixty-one thousand records, so a replay that loses a reinstated record or keeps a
-correction posted while a record was withdrawn changes which pairs are even compared, and the wrong
-answer it produces is a plausible master rather than an obvious failure. An engine repaired against
-a master that was never rebuilt reports a confident full run over the two thousand seven hundred
-record prefix the migration left behind, four per cent of the book.'''
-
-solution_explanation = '''
-solution/solve.sh drives the two dependent steps inside the environment container. Step one runs
-solution/recover_parties.go, which implements the board's final recovery decision (#MDM-3170 and
-#MDM-3174): it starts from /app/data/party_snapshot_pre_migration.json, replays
-/app/data/party_change_journal.json in ascending seq, applies a correction in place, holds a
-withdrawn record aside as it then stood, restores exactly that held state on a reinstatement,
-ignores a change naming an unknown record, and writes the survivors over the truncated
-/app/data/party_records.json ascending by record id with only the nine source fields. Step two
-copies solution/link_parties_fixed.go over /app/workflow/link_parties.go and runs it. The engine
-normalises for comparison only (#MDM-3182), draws candidates from blocks keyed on the normalised
-family-name prefix and given-name initial (#MDM-3184), scores each in-block pair on the board's
-field weights treating an empty field as no evidence (#MDM-3186), links at or above the threshold
-except where the do-not-merge register forbids it and queues those instead (#MDM-3190), unions the
-links transitively, settles each chained group into cohesive clusters by cutting its weakest
-accepted link and forming it again from the links that remain until every group of three or more
-has every pair at or above the threshold and none of them on the register, queueing each cut as
-chain_broken and counting it (#MDM-3230), dissolves any cluster still over the cap into singletons
-and queues each of them (#MDM-3194), chooses the survivor by completeness then earliest load then smallest record id
-(#MDM-3196) but does NOT copy the golden values off it: each field is assembled
-independently from the cluster member with the highest completeness carrying a non-empty
-value for that field, ties to the earliest load then the smallest record id, with a field
-no member fills left empty and completeness reported for the assembled record (#MDM-3220),
-and emits summary.json,
-golden_records.json and review_queue.jsonl in the contracted orders (#MDM-3198).
-'''
-
-verification_explanation = '''
-The separate verifier (tests/Dockerfile builds an isolated image the agent cannot see) collects the
-agent's whole /app as the declared artifact and runs tests/test_outputs.py against it. Step one is
-graded directly: the rebuilt master must match the sealed digest and record count, carry only the
-nine source fields with no journal bookkeeping surviving, and leave the extract and journal
-byte-identical. The verifier re-derives the misreadings of the recovery rule from those same sources
--- a plain concatenation, a replay in file order rather than by sequence, and one where a
-reinstatement re-reads the extract instead of the held state -- and requires each to differ from the
-governed result. Step two recompiles the agent's submitted /app/workflow/link_parties.go from source
-with go build rather than trusting any delivered binary, runs it under an unprivileged uid (65534
-via setpriv, a scrubbed environment, inputs staged into a candidate-writable work area) on both the
-recovered master and a held-out alternate master, and compares summary.json in full plus SHA-256
-digests of golden_records.json and review_queue.jsonl against sealed fixtures generated from the
-reference. Crafted micro-instances pin each of the five reversed rules independently, the last two of
-them covering the golden record's assembly -- one where the survivor is missing a field a
-sibling carries, so the assembled record is more complete than any member of its cluster, and
-one where no member fills a field, so it stays empty rather than being invented: one proves a pair outside
-any shared block is never compared however well it would score, one proves a do-not-merge pair is
-queued rather than silently dropped, one proves an oversized cluster is dissolved into singletons,
-and one proves the survivor of a completeness tie is the earliest loaded record rather than the
-freshest. Three more pin the cohesion rule: a chain whose ends score under the threshold is cut at
-its weaker link and not at its stronger, a group every pair of which agrees is left whole, and a
-pair the register names is kept out of one cluster even where a third record would reach between
-them and every pair scores alike, the tie sending the cut to the pair that sorts first. The run is timed against the ninety-second budget the contract publishes. The frozen
-snapshot /app/workflow/.link_parties.original.go is asserted present by hash and wrong by output.
-Confirmed locally in the real two-container flow: after solve.sh the verifier gives reward 1, a
-fresh environment with no solve.sh gives 0, and so does an environment where the engine is repaired
-but the master is never rebuilt.
-'''
-relevant_experience = '''
-Working knowledge of master-data management as a discipline -- deterministic record linkage,
-blocking, field-weighted scoring, transitive clustering and survivorship taken as read rather than
-looked up -- plus experience rebuilding a master by replaying a change journal onto an extract, and
-reconstructing a matching dialect from an authoritative but noisy stewardship minute book that
-records only the board's departures from standard practice, tracing incrementally-revised rules to
-their final form and matching a strict output contract in Go at a scale where a file-wide
-comparison cannot finish.
-'''
+verification_explanation = '''The separate verifier (tests/Dockerfile builds an isolated image the agent cannot see) collects the agent's whole /app as the declared artifact and runs tests/test_outputs.py against it. Step one is graded directly: the rebuilt master must match the sealed digest and record count, carry only the nine source fields with no journal bookkeeping surviving, and leave the extract and journal byte-identical. The verifier re-derives the misreadings of the recovery rule from those same sources -- a plain concatenation, a replay in file order rather than by sequence, and one where a reinstatement re-reads the extract instead of the held state -- and requires each to differ from the governed result. Step two recompiles the agent's submitted /app/workflow/link_parties.go from source with go build rather than trusting any delivered binary, runs it under an unprivileged uid (65534 via setpriv, a scrubbed environment, inputs staged into a candidate-writable work area) on both the recovered master and a held-out alternate master, and compares summary.json in full plus SHA-256 digests of golden_records.json and review_queue.jsonl against sealed fixtures generated from the reference. Crafted micro-instances pin each of the five reversed rules independently, the last two of them covering the golden record's assembly -- one where the survivor is missing a field a sibling carries, so the assembled record is more complete than any member of its cluster, and one where no member fills a field, so it stays empty rather than being invented: one proves a pair outside any shared block is never compared however well it would score, one proves a do-not-merge pair is queued rather than silently dropped, one proves an oversized cluster is dissolved into singletons, and one proves the survivor of a completeness tie is the earliest loaded record rather than the freshest. Three more pin the cohesion rule: a chain whose ends score under the threshold is cut at its weaker link and not at its stronger, a group every pair of which agrees is left whole, and a pair the register names is kept out of one cluster even where a third record would reach between them and every pair scores alike, the tie sending the cut to the pair that sorts first. The run is timed against the ninety-second budget the contract publishes. The frozen snapshot /app/workflow/.link_parties.original.go is asserted present by hash and wrong by output. Confirmed locally in the real two-container flow: after solve.sh the verifier gives reward 1, a fresh environment with no solve.sh gives 0, and so does an environment where the engine is repaired but the master is never rebuilt.'''
+relevant_experience = '''Working knowledge of master-data management as a discipline -- deterministic record linkage, blocking, field-weighted scoring, transitive clustering and survivorship taken as read rather than looked up -- plus experience rebuilding a master by replaying a change journal onto an extract, and reconstructing a matching dialect from an authoritative but noisy stewardship minute book that records only the board's departures from standard practice, tracing incrementally-revised rules to their final form and matching a strict output contract in Go at a scale where a file-wide comparison cannot finish.'''
 category = "Software"
 subcategory = "Data engineering"
 tags = ["record-linkage", "master-data", "blocking", "survivorship", "incident-recovery"]

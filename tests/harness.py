@@ -110,8 +110,17 @@ def _build(script_path: Path) -> str:
 
 
 def _candidate_dir() -> Path:
-    d = _CWORK / f"run-{next(_run_ctr)}"
-    d.mkdir(parents=True, exist_ok=True)
+    """A fresh work area for one run, created where nothing can pre-empt it.
+
+    /candidate-work is world-writable, so a predictable name here was an opening:
+    a submission could plant the next `run-N` as a symlink to the sealed fixtures
+    and wait. The root-side mkdir(exist_ok=True) would succeed through the link
+    and the chmod would follow it, since os.chmod resolves symlinks and Linux has
+    no lchmod. mkdtemp closes both halves -- the name is unpredictable and the
+    directory is created fresh or not at all.
+    """
+    d = Path(tempfile.mkdtemp(prefix=f"run-{next(_run_ctr)}-", dir=str(_CWORK)))
+    assert not d.is_symlink(), d
     os.chmod(d, 0o777)
     return d
 
