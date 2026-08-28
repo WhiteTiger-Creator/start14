@@ -74,7 +74,21 @@ def _load_json(path):
 
 
 def _load_jsonl(path):
-    return [json.loads(x) for x in Path(path).read_text(encoding="utf-8").splitlines() if x.strip()]
+    """Read a contracted JSONL artifact, taking every line as written.
+
+    Skipping blank lines here softened a contract that says one compact object
+    per line: a run that padded its output with empty lines read back the same
+    as a clean one and scored full marks. A blank line is a malformed line and
+    is read as one.
+    """
+    text = Path(path).read_text(encoding="utf-8")
+    if not text:
+        return []
+    assert text.endswith("\n"), f"{Path(path).name} has no trailing newline"
+    lines = text.split("\n")[:-1]
+    for number, line in enumerate(lines, start=1):
+        assert line.strip(), f"{Path(path).name} line {number} is blank"
+    return [json.loads(line) for line in lines]
 
 
 def _write_json(path, value):

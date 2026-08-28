@@ -1,20 +1,22 @@
 FROM public.ecr.aws/docker/library/python:3.13-slim-bookworm@sha256:01f42367a0a94ad4bc17111776fd66e3500c1d87c15bbd6055b7371d39c124fb
 
+# The verifier recompiles the submitted source, so it must hold the SAME Go
+# the agent built against. Debian's golang-go is 1.19 on bookworm, five
+# releases behind the 1.24 the environment ships, so a submission using
+# anything newer compiled for the agent and failed here through no fault of
+# its own. The toolchain is taken from the same digest-pinned image the
+# environment uses rather than from apt, which keeps the two in lockstep and
+# needs no download.
+COPY --from=public.ecr.aws/docker/library/golang:1.24-bookworm@sha256:1a6d4452c65dea36aac2e2d606b01b4a029ec90cc1ae53890540ce6173ea77ac /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:$PATH \
+    GOCACHE=/tmp/gocache \
+    GOPATH=/tmp/gopath \
+    GO111MODULE=off
+
 # Verifier dependencies, baked in (no network at trial time). The submitted Go
 # source is recompiled here, so the toolchain is verifier-side too; grading uses
 # the stdlib plus pytest.
 RUN set -eux; \
-    for attempt in 1 2 3 4; do \
-        apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 update \
-        && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 \
-            install -y --no-install-recommends golang-go \
-        && break; \
-        echo "apt attempt $attempt failed; retrying"; \
-        rm -rf /var/lib/apt/lists/*; \
-        sleep $((attempt * 5)); \
-        [ "$attempt" -lt 4 ] || exit 1; \
-    done; \
-    rm -rf /var/lib/apt/lists/*; \
     for attempt in 1 2 3 4; do \
         pip install --no-cache-dir --timeout 30 --retries 3 \
             pytest==8.4.1 \
