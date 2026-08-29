@@ -265,6 +265,25 @@ def test_candidates_come_only_from_a_shared_block():
     assert [g["member_count"] for g in golden] == [1, 1]
 
 
+def test_normalisation_keeps_letters_that_are_not_ascii():
+    """#MDM-3182 drops what is not a letter or a digit, and keeps what is.
+
+    A letter is a letter whatever alphabet it comes from. An engine that tests
+    a-z instead drops the accented characters, which shortens the value the
+    block key is cut from: "Bo\u00e9tie" normalises to "botie" there and blocks
+    on "boti", while "Botie" blocks on "boti" too, so the two are compared and
+    linked when the governed reading keeps them apart on "boet" against "boti".
+    """
+    _, summary, golden, _ = _probe([
+        _rec("REC-000001", "Bo\u00e9tie"),
+        _rec("REC-000002", "Botie"),
+    ])
+    assert summary["link_count"] == 0, (
+        "the accented letter was dropped rather than kept, so two records that "
+        "block apart under the governed normalisation were compared")
+    assert [g["member_count"] for g in golden] == [1, 1]
+
+
 def test_a_record_with_no_family_name_joins_no_block():
     """#MDM-3184: an empty family name takes a record out of blocking entirely.
 

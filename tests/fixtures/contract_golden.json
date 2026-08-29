@@ -28,7 +28,11 @@
       ],
       "path": "/app/output/golden_records.json",
       "serialisation": "JSON array, two-space indent, trailing newline",
-      "sort": "ascending by cluster_id; member_ids ascending"
+      "sort": "ascending by cluster_id; member_ids ascending",
+      "field_notes": {
+        "member_count": "how many records the cluster holds",
+        "completeness": "how many of the six compared fields -- given_name, family_name, street, city, postal_code, born_on -- the record carries a non-empty value for, judged after normalisation and on the assembled record rather than on the survivor"
+      }
     },
     "review_queue": {
       "container": "jsonl",

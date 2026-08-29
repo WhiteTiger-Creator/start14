@@ -89,7 +89,12 @@ func normalise(s string) string {
 	lastSpace := true
 	for _, r := range strings.ToLower(s) {
 		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		// #MDM-3182 drops every character that is not a letter or a digit, and a
+		// letter is a letter whatever alphabet it comes from. Testing a-z and 0-9
+		// dropped e-acute and every other non-ASCII letter instead of keeping it,
+		// which silently shortened the value the block key and the field scores
+		// are taken from.
+		case unicode.IsLetter(r), unicode.IsDigit(r):
 			b.WriteRune(r)
 			lastSpace = false
 		case unicode.IsSpace(r):
