@@ -5,7 +5,8 @@
       "/app/data/do_not_merge.json"
     ],
     "input": "--input selects the party records file only; default /app/data/party_records.json",
-    "output_dir": "--output-dir selects the output directory; default /app/output"
+    "output_dir": "--output-dir selects the output directory; default /app/output",
+    "output_dir_handling": "the run clears what an earlier run left in the output directory and writes its own three files there; the directory itself is not removed and recreated, since the run does not own the path it writes into"
   },
   "contract_version": "party-link-v1",
   "description": "Output contract for the party-linkage engine. Shapes, paths, field lists, sort orders and what each summary counter counts; no derivation rule lives here.",
@@ -26,13 +27,13 @@
         "member_count",
         "completeness"
       ],
+      "field_notes": {
+        "completeness": "how many of the six compared fields -- given_name, family_name, street, city, postal_code, born_on -- the record carries a non-empty value for, judged after normalisation and on the assembled record rather than on the survivor",
+        "member_count": "how many records the cluster holds"
+      },
       "path": "/app/output/golden_records.json",
       "serialisation": "JSON array, two-space indent, trailing newline",
-      "sort": "ascending by cluster_id; member_ids ascending",
-      "field_notes": {
-        "member_count": "how many records the cluster holds",
-        "completeness": "how many of the six compared fields -- given_name, family_name, street, city, postal_code, born_on -- the record carries a non-empty value for, judged after normalisation and on the assembled record rather than on the survivor"
-      }
+      "sort": "ascending by cluster_id; member_ids ascending"
     },
     "review_queue": {
       "container": "jsonl",

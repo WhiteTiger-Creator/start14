@@ -284,6 +284,47 @@ def test_normalisation_keeps_letters_that_are_not_ascii():
     assert [g["member_count"] for g in golden] == [1, 1]
 
 
+def test_the_block_key_is_cut_in_characters_not_bytes():
+    """#MDM-3184 counts characters, and UTF-8 makes the two readings differ.
+
+    The accented case above passes whichever way the string is sliced, because
+    the first four bytes of "bo\u00e9tie" still differ from those of "botie". These
+    two pairs separate the readings: each pair shares a leading byte sequence and
+    differs in the character that byte sequence begins, so an engine slicing by
+    byte offset puts them in one block and compares them, while the governed
+    reading keeps them apart. Every other field agrees, so a comparison that
+    happens at all scores far above the threshold and links.
+    """
+    # the family prefix: "bo\u00e9tie" and "bo\u00e9xyz" share their first four BYTES
+    # ("b", "o" and the two bytes of "\u00e9") but differ in their fourth CHARACTER
+    _, summary, golden, _ = _probe([
+        _rec("REC-000001", "Bo\u00e9tie"),
+        _rec("REC-000002", "Bo\u00e9xyz"),
+    ])
+    assert summary["link_count"] == 0, (
+        "the family prefix was cut at four bytes rather than four characters, so "
+        "two names that block apart were compared and linked")
+    assert [g["member_count"] for g in golden] == [1, 1]
+
+    # the given initial: "\u00e1ngel" and "\u00e0urea" begin with different characters that
+    # share their first byte, so a one-byte slice makes the initials equal
+    _, summary, golden, _ = _probe([
+        _rec("REC-000001", "Marsh", given="\u00c1ngel"),
+        _rec("REC-000002", "Marsh", given="\u00c0urea"),
+    ])
+    assert summary["link_count"] == 0, (
+        "the given initial was taken as one byte rather than one character, so "
+        "two records whose initials differ were compared and linked")
+    assert [g["member_count"] for g in golden] == [1, 1]
+
+
+def test_the_byte_and_character_readings_really_do_differ_here():
+    """Otherwise the test above would pass on an engine that slices bytes."""
+    for left, right, prefix in (("bo\u00e9tie", "bo\u00e9xyz", 4), ("\u00e1ngel", "\u00e0urea", 1)):
+        assert left.encode()[:prefix] == right.encode()[:prefix], (left, right)
+        assert left[:prefix] != right[:prefix], (left, right)
+
+
 def test_a_record_with_no_family_name_joins_no_block():
     """#MDM-3184: an empty family name takes a record out of blocking entirely.
 

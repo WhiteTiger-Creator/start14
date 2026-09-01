@@ -320,12 +320,16 @@ func main() {
 		if fam == "" {
 			continue
 		}
-		key := fam
-		if len(key) > prefixLen {
-			key = key[:prefixLen]
+		// characters, not bytes: slicing a UTF-8 string by byte offset cuts a
+		// multi-byte letter in half, so two names sharing only a leading byte
+		// would block together and one letter would be split into a fragment
+		famRunes := []rune(fam)
+		if len(famRunes) > prefixLen {
+			famRunes = famRunes[:prefixLen]
 		}
+		key := string(famRunes)
 		if giv != "" {
-			key += "|" + giv[:1]
+			key += "|" + string([]rune(giv)[0])
 		} else {
 			key += "|"
 		}
