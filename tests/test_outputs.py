@@ -597,7 +597,10 @@ def test_no_argument_run_writes_to_the_documented_default_output_dir(primary_out
     default_out.mkdir(parents=True, exist_ok=True)
     os.chmod(default_out, 0o777)
     result = _run_agent([binary], cwd=_candidate_dir())
-    assert result.returncode == 0, result.stderr
+    # the exit code is a precondition; the verdict is the default directory below
+    assert result.returncode == 0, (
+        f"the run exited {result.returncode}\n"
+        f"stdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}")
     assert sorted(q.name for q in default_out.iterdir()) == [
         "golden_records.json", "review_queue.jsonl", "summary.json"]
     _, summary, golden, reviews = primary_outputs
@@ -625,6 +628,58 @@ def test_output_artifacts_use_the_contracted_serialisation(primary_outputs):
     assert len(lines) == len(reviews)
     for line, row in zip(lines, reviews):
         assert line == json.dumps(row, separators=(",", ":"))
+
+
+def test_an_engine_run_rewrites_nothing_under_app_data():
+    """instruction.md says an engine run rewrites nothing under /app/data at all.
+
+    The intactness check at the top of this file runs before any engine run in
+    file order, so an engine that rebuilt the master, the policy or the register
+    while it ran still satisfied it. This hashes the whole tree either side of a
+    run of its own, so the ordering carries no weight.
+    """
+    binary = _build(WORKFLOW_PATH)
+    _publish_inputs()
+    work = _candidate_dir()
+    out_dir = work / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    os.chmod(out_dir, 0o777)
+
+    def tree() -> dict:
+        return {str(q.relative_to(DATA)): hashlib.sha256(q.read_bytes()).hexdigest()
+                for q in sorted(DATA.rglob("*")) if q.is_file()}
+
+    before = tree()
+    result = _run_agent([binary, "--output-dir", str(out_dir)], cwd=work)
+    assert result.returncode == 0, (
+        f"the run exited {result.returncode}\n"
+        f"stdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}")
+    after = tree()
+    assert after == before, (
+        "the engine wrote under /app/data: "
+        f"changed {sorted(set(before) & set(after) - {k for k in before if before[k] == after.get(k)})}, "
+        f"added {sorted(set(after) - set(before))}, removed {sorted(set(before) - set(after))}")
+
+
+def test_the_engine_is_one_go_source_with_no_sibling_beside_it():
+    """instruction.md makes the deliverable that one Go source and nothing else.
+
+    _build compiles /app/workflow/link_parties.go on its own, so a submission
+    split across siblings fails with an undefined-symbol error that does not say
+    why, and a stray compiled binary left beside it was never mentioned at all.
+    This checks the rule the instruction states and names what it finds.
+    """
+    engine = WORKFLOW_PATH.resolve()
+    # the go tool ignores sources whose name starts with "." or "_", so the frozen
+    # copy sitting beside the engine is not a sibling in the sense that matters
+    siblings = sorted(q.name for q in WORKFLOW_PATH.parent.glob("*.go")
+                      if q.resolve() != engine and not q.name.startswith((".", "_")))
+    assert siblings == [], (
+        "the engine is one package main in one file compiled on its own, so these "
+        f"sibling sources never reach the build: {siblings}")
+    stray = sorted(q.name for q in WORKFLOW_PATH.parent.glob("go.*"))
+    assert stray == [], f"the build takes the one file, not a module: {stray}"
+    _build(WORKFLOW_PATH)
 
 
 def test_stale_files_are_cleared_from_the_output_directory():
