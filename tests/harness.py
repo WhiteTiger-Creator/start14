@@ -275,26 +275,34 @@ def _reap_group(pgid: int) -> None:
 
 
 def _run_agent(argv, cwd: Path):
-    """Run the submitted program unprivileged and in its own process group."""
-    proc = subprocess.Popen(
-        _SETPRIV + argv, cwd=str(cwd), env=dict(CHILD_ENV),
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        preexec_fn=_apply_rlimits,
-    )
-    pgid = proc.pid          # session leader: pgid == pid, captured before the wait
-    try:
-        stdout, stderr = proc.communicate(timeout=HARD_TIMEOUT_SEC)
-    except subprocess.TimeoutExpired:
-        _reap_group(pgid)
-        reap_candidate_uid()
-        proc.wait()
-        raise
-    finally:
-        # even on a clean exit, anything the program left running is stopped
-        # before its outputs are read
-        _reap_group(pgid)
-        reap_candidate_uid()
-    result = subprocess.CompletedProcess(argv, proc.returncode, stdout, stderr)
+    """Run the submitted engine unprivileged and in its own process group.
+
+    Output goes to temporary files rather than pipes: communicate() returns when
+    the pipes reach EOF, not when the program exits, so a child that called
+    setsid and outlived its parent while holding the write end would stall the
+    read until the deadline and turn a clean run into a timeout failure.
+    """
+    with tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as out_fh, \
+            tempfile.TemporaryFile(mode="w+", encoding="utf-8", errors="replace") as err_fh:
+        proc = subprocess.Popen(
+            _SETPRIV + argv, cwd=str(cwd), env=dict(CHILD_ENV),
+            stdout=out_fh, stderr=err_fh,
+            preexec_fn=_apply_rlimits,
+        )
+        pgid = proc.pid      # session leader: pgid == pid, captured before the wait
+        try:
+            proc.wait(timeout=HARD_TIMEOUT_SEC)
+        except subprocess.TimeoutExpired:
+            _reap_group(pgid)
+            reap_candidate_uid()
+            proc.wait()
+            raise
+        finally:
+            _reap_group(pgid)
+            reap_candidate_uid()
+        out_fh.seek(0)
+        err_fh.seek(0)
+        result = subprocess.CompletedProcess(argv, proc.returncode, out_fh.read(), err_fh.read())
     return result
 
 

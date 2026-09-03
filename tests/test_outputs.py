@@ -589,7 +589,11 @@ def test_no_argument_run_writes_to_the_documented_default_output_dir(primary_out
     _publish_inputs()
     default_out = Path(SPEC["cli"]["output_dir"].split("default ")[-1].strip())
     assert str(default_out) == "/app/output"
-    shutil.rmtree(default_out, ignore_errors=True)
+    # shared state: emptied rather than replaced, and the mode restored below
+    default_out.mkdir(parents=True, exist_ok=True)
+    before_mode = default_out.stat().st_mode & 0o777
+    for stale in sorted(default_out.iterdir()):
+        stale.unlink() if stale.is_file() or stale.is_symlink() else shutil.rmtree(stale)
     default_out.mkdir(parents=True, exist_ok=True)
     os.chmod(default_out, 0o777)
     result = _run_agent([binary], cwd=_candidate_dir())
@@ -600,6 +604,8 @@ def test_no_argument_run_writes_to_the_documented_default_output_dir(primary_out
     assert _load_json(default_out / "summary.json") == summary
     assert _digest(_load_json(default_out / "golden_records.json")) == _digest(golden)
     assert _digest(_load_jsonl(default_out / "review_queue.jsonl")) == _digest(reviews)
+    os.chmod(default_out, before_mode)
+
 
 
 def test_output_artifacts_use_the_contracted_serialisation(primary_outputs):
@@ -642,11 +648,60 @@ def test_stale_files_are_cleared_from_the_output_directory():
     (stale_dir / "inner.json").write_text("{}\n", encoding="utf-8")
     os.chmod(stale_dir / "inner.json", 0o666)
     os.chmod(stale_dir, 0o777)
+    # instruction.md and the contract both say the directory itself stays where
+    # it is; checking only the resulting names let a RemoveAll+MkdirAll pass, so
+    # the inode and the mode are taken before the run and compared after.
+    before = out_dir.stat()
     result = _run_agent([binary, "--output-dir", str(out_dir)], cwd=work)
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == 0, (
+        f"the run exited {result.returncode}\n"
+        f"stdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}")
     assert sorted(q.name for q in out_dir.iterdir()) == [
         "golden_records.json", "review_queue.jsonl", "summary.json"]
     assert _load_json(out_dir / "golden_records.json") != []
+    after = out_dir.stat()
+    assert (after.st_ino, after.st_dev) == (before.st_ino, before.st_dev), (
+        "the output directory was replaced rather than cleared; the contract says "
+        "the run clears the contents and leaves the directory itself in place")
+    assert after.st_mode == before.st_mode, "the run changed the output directory's mode"
+
+
+def test_recovery_sources_are_still_intact_after_a_graded_run(primary_outputs):
+    """The same digest, taken after the engine has actually run.
+
+    The check at the top of this file runs before any engine does, so an engine
+    that rewrote something under /app/data while it worked was caught only by
+    filesystem permissions rather than by an assertion. This repeats the
+    comparison once a graded run has completed.
+    """
+    live = {n: hashlib.sha256(Path(p).read_bytes()).hexdigest() for n, p in (
+        ("extract", EXTRACT_PATH), ("journal", JOURNAL_PATH),
+        ("policy", DATA / "linkage_policy.json"), ("dnm", DATA / "do_not_merge.json"),
+        ("contract", SPEC_PATH), ("log", LOG_PATH))}
+    assert _digest(live) == FIXTURE["rule_sources_digest"], (
+        "an input was rewritten while the graded run was in flight")
+
+
+def test_a_cluster_cap_of_zero_dissolves_every_cluster():
+    """#MDM-3194 compares directly, so a cap of zero leaves nothing clustered.
+
+    "A cluster holding more than max_cluster_size records is not trusted" is true
+    of every cluster when the cap is zero. The engine guarded the rule on a
+    positive cap, which turned zero into no cap at all -- the opposite reading,
+    and one no document supports.
+    """
+    records = [
+        _rec("REC-000001", "Marsh", given="alpha"),
+        _rec("REC-000002", "Marsh", given="alpha"),
+    ]
+    _, summary, golden, reviews = _probe(records, policy={"default": {
+        "match_threshold": 62, "review_floor": 48,
+        "block_prefix_len": 4, "max_cluster_size": 0}})
+    assert summary["effective_max_cluster"] == 0
+    assert [g["member_count"] for g in golden] == [1, 1], (
+        "a cap of zero left a cluster standing, so the rule was skipped entirely")
+    assert {r["reason"] for r in reviews} == {"cluster_too_large"}
+    assert summary["oversized_cluster_count"] >= 1
 
 
 def test_missing_policy_fields_fall_back_to_the_governed_baseline():

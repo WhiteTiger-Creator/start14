@@ -441,10 +441,17 @@ func main() {
 
 	golden := make([]goldenRecord, 0, len(settled))
 	oversized := 0
+	capLimit := maxCluster
+	if capLimit < 0 {
+		capLimit = 0
+	}
+
 	for _, members := range settled {
-		// #MDM-3194: a cluster larger than the policy cap is not trusted; its
-		// members are emitted as singletons and every one of them is queued.
-		if maxCluster > 0 && len(members) > maxCluster {
+		// #MDM-3194: a cluster holding MORE THAN max_cluster_size records is not
+		// trusted; its members are emitted as singletons and every one is queued.
+		// The comparison is direct, so it holds at every value the cap can take --
+		// guarding on maxCluster > 0 made a cap of zero mean no cap at all.
+		if len(members) > capLimit {
 			oversized++
 			for _, m := range members {
 				reviews = append(reviews, reviewRow{
