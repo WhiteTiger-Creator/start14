@@ -27,6 +27,8 @@ RUN set -eux; \
                 procps \
                 tmux \
                 asciinema \
+                python3-pip \
+                python3-venv \
         && break; \
         echo "apt attempt $attempt failed; retrying"; \
         rm -rf /var/lib/apt/lists/*; \
