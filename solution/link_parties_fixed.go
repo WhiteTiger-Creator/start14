@@ -6,6 +6,7 @@
 package main
 
 import (
+	"path/filepath"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -275,6 +276,9 @@ func settle(members []int, links []acceptedLink, records []record,
 	}
 	return clusters, cuts
 }
+
+// The operational inputs live here and a run never writes into them.
+const dataRoot = "/app/data"
 
 func main() {
 	input := flag.String("input", "/app/data/party_records.json", "party records")
@@ -554,6 +558,20 @@ func main() {
 	for _, g := range golden {
 		if g.MemberCount > 1 {
 			merged++
+		}
+	}
+
+	// The clearing below is unconditional for whatever --output-dir names, so a
+	// run pointed at /app/data would treat the operational inputs as this run's
+	// stale output and delete them. instruction.md says a run rewrites nothing
+	// under /app/data at all, and that rule outranks the caller's choice of
+	// directory: the run refuses rather than complying destructively.
+	if resolved, err := filepath.Abs(*outputDir); err == nil {
+		if resolved == dataRoot || strings.HasPrefix(resolved, dataRoot+string(filepath.Separator)) {
+			fmt.Fprintf(os.Stderr,
+				"refusing to write into %s: a run rewrites nothing under %s\n",
+				resolved, dataRoot)
+			os.Exit(1)
 		}
 	}
 

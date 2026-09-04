@@ -683,6 +683,34 @@ def test_staging_the_run_input_does_not_follow_a_planted_link():
     assert MASTER_PATH.read_bytes() == original
 
 
+def test_a_run_pointed_at_app_data_refuses_rather_than_clearing_it():
+    """instruction.md says a run rewrites nothing under /app/data, whatever it is handed.
+
+    The clearing rule and the no-writes-under-/app/data rule collide when the two
+    name the same directory: a run that empties whatever --output-dir it is given
+    would delete the operational inputs and then write its three artifacts over
+    them. The second rule outranks the caller's choice, so the run has to refuse.
+    Nothing checked that, and the reference cleared unconditionally.
+    """
+    binary = _build(WORKFLOW_PATH)
+    _publish_inputs()
+
+    def tree():
+        return {str(q.relative_to(DATA)): hashlib.sha256(q.read_bytes()).hexdigest()
+                for q in sorted(DATA.rglob("*")) if q.is_file()}
+
+    before = tree()
+    result = _run_agent([binary, "--output-dir", str(DATA)], cwd=_candidate_dir())
+    after = tree()
+    assert after == before, (
+        "a run handed /app/data as its output directory deleted or rewrote the "
+        f"operational inputs: removed {sorted(set(before) - set(after))}, "
+        f"changed {sorted(k for k in before.keys() & after.keys() if before[k] != after[k])}")
+    assert result.returncode != 0, (
+        "the run accepted /app/data as its output directory instead of refusing it")
+    assert not (DATA / "summary.json").exists(), "the run wrote an artifact under /app/data"
+
+
 def test_an_engine_run_rewrites_nothing_under_app_data():
     """instruction.md says an engine run rewrites nothing under /app/data at all.
 
