@@ -42,4 +42,5 @@ RUN set -eux; \
 # recovery sources the engine has to be rebuilt from. All values are synthetic.
 COPY app/ /app/
 RUN cp /app/workflow/link_parties.go /app/workflow/.link_parties.original.go \
-    && chmod a-w /app/workflow/.link_parties.original.go
+    && chmod a-w /app/workflow/.link_parties.original.go \
+    && mkdir -p /app/output && chmod 777 /app/output

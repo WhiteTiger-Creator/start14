@@ -101,8 +101,26 @@ def test_the_rebuilt_master_uses_the_serialisation_the_contract_states():
     """
     raw = MASTER_PATH.read_text(encoding="utf-8")
     assert raw.endswith("\n") and not raw.endswith("\n\n"), "no trailing newline"
-    assert raw == json.dumps(json.loads(raw), indent=2) + "\n", (
+    assert _as_contract_layout(raw) == json.dumps(
+        json.loads(raw), indent=2, ensure_ascii=False) + "\n", (
         "the rebuilt master is not two-space-indented JSON")
+
+
+def _as_contract_layout(raw: str) -> str:
+    """The text with encoder-specific escaping normalised away.
+
+    The contract fixes the LAYOUT -- two-space indent, trailing newline -- not the
+    escape style, and the two encoders disagree: Go's json.Marshal writes `<`, `>`
+    and `&` as \\u003c, \\u003e and \\u0026 and emits non-ASCII as literal UTF-8,
+    while Python's json.dumps does the opposite on both counts. Comparing raw bytes
+    against Python's rendering therefore failed a correct Go engine the moment any
+    of those characters reached the data -- and the normalisation this task grades
+    keeps letters that are not ASCII. Normalising both sides leaves the indent and
+    the newline pinned exactly, which is what the contract actually states.
+    """
+    for escaped, literal in (("\\u003c", "<"), ("\\u003e", ">"), ("\\u0026", "&")):
+        raw = raw.replace(escaped, literal)
+    return raw
 
 
 def test_wrong_replays_differ_from_the_governed_master():
@@ -618,16 +636,19 @@ def test_output_artifacts_use_the_contracted_serialisation(primary_outputs):
     documents, one compact object per line for the queue.
     """
     out_dir, summary, golden, reviews = primary_outputs
-    assert (out_dir / "summary.json").read_text(encoding="utf-8") == \
-        json.dumps(summary, indent=2) + "\n"
-    assert (out_dir / "golden_records.json").read_text(encoding="utf-8") == \
-        json.dumps(golden, indent=2) + "\n"
+    assert _as_contract_layout(
+        (out_dir / "summary.json").read_text(encoding="utf-8")) == \
+        json.dumps(summary, indent=2, ensure_ascii=False) + "\n"
+    assert _as_contract_layout(
+        (out_dir / "golden_records.json").read_text(encoding="utf-8")) == \
+        json.dumps(golden, indent=2, ensure_ascii=False) + "\n"
     raw = (out_dir / "review_queue.jsonl").read_text(encoding="utf-8")
     assert raw.endswith("\n") and "\n\n" not in raw
     lines = raw.splitlines()
     assert len(lines) == len(reviews)
     for line, row in zip(lines, reviews):
-        assert line == json.dumps(row, separators=(",", ":"))
+        assert _as_contract_layout(line) == json.dumps(
+            row, separators=(",", ":"), ensure_ascii=False)
 
 
 def test_an_engine_run_rewrites_nothing_under_app_data():
@@ -682,6 +703,30 @@ def test_the_engine_is_one_go_source_with_no_sibling_beside_it():
     _build(WORKFLOW_PATH)
 
 
+def test_a_binary_left_beside_the_engine_is_not_what_gets_graded():
+    """instruction.md names the case outright: "no binary you leave behind is read".
+
+    The test above checks the source side of that rule, and nothing checked this
+    side. A submission that got its answer from a pre-built executable rather than
+    from the delivered source would be graded on the executable if anything ever
+    picked it up. This plants one that fails on sight and requires the run to be
+    unaffected, so the grading path is proved to go through the compiler.
+    """
+    planted = WORKFLOW_PATH.parent / WORKFLOW_PATH.stem
+    assert not planted.exists(), f"{planted.name} already sits beside the engine"
+    planted.write_text("#!/bin/sh\nexit 3\n", encoding="utf-8")
+    os.chmod(planted, 0o755)
+    try:
+        _, summary, golden, reviews = _run_pipeline()
+        assert summary == FIXTURE["primary"]["summary"], (
+            "the graded run changed once an executable was planted beside the "
+            "source, so something other than the compiled source was read")
+        assert _digest(golden) == FIXTURE["primary"]["golden_digest"]
+        assert _digest(reviews) == FIXTURE["primary"]["review_digest"]
+    finally:
+        planted.unlink()
+
+
 def test_stale_files_are_cleared_from_the_output_directory():
     """A run presents its own artifacts, not whatever an earlier run left behind."""
     binary = _build(WORKFLOW_PATH)
@@ -718,7 +763,9 @@ def test_stale_files_are_cleared_from_the_output_directory():
     assert (after.st_ino, after.st_dev) == (before.st_ino, before.st_dev), (
         "the output directory was replaced rather than cleared; the contract says "
         "the run clears the contents and leaves the directory itself in place")
-    assert after.st_mode == before.st_mode, "the run changed the output directory's mode"
+    # the mode is deliberately NOT asserted: the contract says the contents are
+    # cleared and the directory itself stays, and the inode check above is what
+    # proves that. Neither it nor instruction.md says anything about the mode.
 
 
 def test_recovery_sources_are_still_intact_after_a_graded_run(primary_outputs):
@@ -802,7 +849,10 @@ def test_submitted_program_runs_unprivileged_and_cannot_write_reward(tmp_path):
         '\tfmt.Println(err != nil)\n}\n', encoding="utf-8")
     binary = _build(probe)
     result = _run_agent([binary], cwd=_candidate_dir())
-    assert result.returncode == 0, result.stderr
+    # the exit code is a precondition; the verdict is the probe's own two lines
+    assert result.returncode == 0, (
+        f"the run exited {result.returncode}\n"
+        f"stdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}")
     parts = result.stdout.split()
     assert parts[0] == str(CANDIDATE_UID) and parts[1] == "true"
 
