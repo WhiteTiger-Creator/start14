@@ -715,24 +715,31 @@ def test_an_engine_run_rewrites_nothing_under_app_data():
 
 
 def test_the_engine_is_one_go_source_with_no_sibling_beside_it():
-    """instruction.md makes the deliverable that one Go source and nothing else.
+    """instruction.md makes the deliverable that one Go source compiled from that file alone.
 
-    _build compiles /app/workflow/link_parties.go on its own, so a submission
-    split across siblings fails with an undefined-symbol error that does not say
-    why, and a stray compiled binary left beside it was never mentioned at all.
-    This checks the rule the instruction states and names what it finds.
+    _build copies /app/workflow/link_parties.go to a temp directory as main.go and
+    compiles it there, so a submission split across siblings fails with an
+    undefined-symbol error that does not say why. This states the rule and names
+    the siblings when it fails. It deliberately does NOT ban them: the instruction
+    says the master-rebuild tooling is the agent's to put where it likes, so a
+    stray file in this directory is not by itself a breach.
     """
     engine = WORKFLOW_PATH.resolve()
-    # the go tool ignores sources whose name starts with "." or "_", so the frozen
-    # copy sitting beside the engine is not a sibling in the sense that matters
+    # The rule instruction.md states is that the engine COMPILES FROM THAT FILE
+    # ALONE -- not that the directory is empty. It also says whatever rebuilt the
+    # master is the agent's to put where it likes, so banning every sibling here
+    # failed a submission that had done nothing wrong. The build is the check: a
+    # submission whose engine leans on a sibling does not compile from the one
+    # file, and the siblings are named only to say why.
     siblings = sorted(q.name for q in WORKFLOW_PATH.parent.glob("*.go")
                       if q.resolve() != engine and not q.name.startswith((".", "_")))
-    assert siblings == [], (
-        "the engine is one package main in one file compiled on its own, so these "
-        f"sibling sources never reach the build: {siblings}")
-    stray = sorted(q.name for q in WORKFLOW_PATH.parent.glob("go.*"))
-    assert stray == [], f"the build takes the one file, not a module: {stray}"
-    _build(WORKFLOW_PATH)
+    try:
+        _build(WORKFLOW_PATH)
+    except AssertionError as exc:
+        raise AssertionError(
+            f"{WORKFLOW_PATH.name} does not compile on its own, as instruction.md "
+            f"requires. Sibling sources beside it, which never join this build: "
+            f"{siblings}\n\n{exc}") from exc
 
 
 def test_a_binary_left_beside_the_engine_is_not_what_gets_graded():
@@ -744,8 +751,13 @@ def test_a_binary_left_beside_the_engine_is_not_what_gets_graded():
     picked it up. This plants one that fails on sight and requires the run to be
     unaffected, so the grading path is proved to go through the compiler.
     """
+    # An agent that ran `go build link_parties.go` here and left the artefact has
+    # done nothing the instruction forbids -- it says such a binary is not read,
+    # not that it may not exist -- so anything already sitting there is put back
+    # afterwards rather than treated as a failure.
     planted = WORKFLOW_PATH.parent / WORKFLOW_PATH.stem
-    assert not planted.exists(), f"{planted.name} already sits beside the engine"
+    existing = planted.read_bytes() if planted.is_file() else None
+    existing_mode = planted.stat().st_mode & 0o7777 if planted.is_file() else None
     planted.write_text("#!/bin/sh\nexit 3\n", encoding="utf-8")
     os.chmod(planted, 0o755)
     try:
@@ -757,6 +769,9 @@ def test_a_binary_left_beside_the_engine_is_not_what_gets_graded():
         assert _digest(reviews) == FIXTURE["primary"]["review_digest"]
     finally:
         planted.unlink()
+        if existing is not None:
+            planted.write_bytes(existing)
+            os.chmod(planted, existing_mode)
 
 
 def test_stale_files_are_cleared_from_the_output_directory():
