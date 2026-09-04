@@ -651,6 +651,38 @@ def test_output_artifacts_use_the_contracted_serialisation(primary_outputs):
             row, separators=(",", ":"), ensure_ascii=False)
 
 
+def test_staging_the_run_input_does_not_follow_a_planted_link():
+    """The master sits on the one /app/data path the agent replaces, and staging runs as root.
+
+    Every graded run copies /app/data/party_records.json into the candidate's own
+    work area. That copy followed the source link, so a submission that left a
+    symlink there instead of a rebuilt master pointed root at whatever it named --
+    the sealed fixtures under /tests included -- and had the contents laid down at
+    0644 where the graded program reads them. Staging now refuses anything that is
+    not a regular file, and this plants the link to prove it.
+    """
+    sentinel = Path("/tests/fixtures/expected_report.json")
+    if not sentinel.exists():
+        sentinel = SPEC_PATH
+    original = MASTER_PATH.read_bytes()
+    mode = MASTER_PATH.stat().st_mode & 0o7777
+    try:
+        MASTER_PATH.unlink()
+        MASTER_PATH.symlink_to(sentinel)
+        staged = _candidate_dir() / "master.json"
+        with pytest.raises(AssertionError):
+            _stage_input(MASTER_PATH, staged)
+        assert not staged.exists(), (
+            "the planted link was staged anyway, so its target is now readable "
+            "at the path the graded program is handed")
+    finally:
+        if MASTER_PATH.is_symlink() or MASTER_PATH.exists():
+            MASTER_PATH.unlink()
+        MASTER_PATH.write_bytes(original)
+        os.chmod(MASTER_PATH, mode)
+    assert MASTER_PATH.read_bytes() == original
+
+
 def test_an_engine_run_rewrites_nothing_under_app_data():
     """instruction.md says an engine run rewrites nothing under /app/data at all.
 

@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import signal
 import subprocess
 import sys
@@ -306,6 +307,38 @@ def _run_agent(argv, cwd: Path):
     return result
 
 
+def _stage_input(src: Path, dst: Path) -> None:
+    """Copy `src` to `dst` as a regular file, never through a link.
+
+    The default input is /app/data/party_records.json, the one path under /app/data
+    the agent is told to replace, and staging runs as root. shutil.copyfile follows
+    the source link, so a symlink planted there would have been read with root's
+    privileges and laid down at 0644 inside the candidate's own work area -- which
+    is how the sealed fixtures under /tests would have reached the graded program.
+    O_NOFOLLOW refuses the link at the final component and the fstat refuses
+    anything that is not a regular file.
+    """
+    try:
+        handle = os.open(str(src), os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise AssertionError(
+            f"{src} could not be staged as a regular file: {exc}") from exc
+    try:
+        info = os.fstat(handle)
+        assert stat.S_ISREG(info.st_mode), (
+            f"{src} is not a regular file, so it is not staged")
+        payload = b""
+        while True:
+            chunk = os.read(handle, 1 << 20)
+            if not chunk:
+                break
+            payload += chunk
+    finally:
+        os.close(handle)
+    dst.write_bytes(payload)
+    os.chmod(dst, 0o644)
+
+
 def _run_pipeline(script_path: Path = WORKFLOW_PATH, input_path: Path = MASTER_PATH):
     """Build and run the submitted planner as an unprivileged subprocess."""
     binary = _build(script_path)
@@ -315,8 +348,7 @@ def _run_pipeline(script_path: Path = WORKFLOW_PATH, input_path: Path = MASTER_P
     out_dir.mkdir(parents=True, exist_ok=True)
     os.chmod(out_dir, 0o777)
     staged = work / "master.json"
-    shutil.copyfile(str(input_path), str(staged))
-    os.chmod(staged, 0o644)
+    _stage_input(Path(input_path), staged)
     result = _run_agent([binary, "--input", str(staged), "--output-dir", str(out_dir)], cwd=work)
     assert result.returncode == 0, f"linker failed:\n{result.stdout}\n{result.stderr}"
     return (out_dir,
@@ -374,5 +406,6 @@ __all__ = [
     "_candidate_dir",
     "_publish_inputs",
     "_run_agent",
+    "_stage_input",
     "_run_pipeline",
 ]
